@@ -1,3 +1,5 @@
 *.code-workspace
 *.venv
 *.conda
+*\tensorflow
+*\__pycache__
