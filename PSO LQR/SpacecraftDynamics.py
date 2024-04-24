@@ -61,7 +61,7 @@ def createDiag(weights):
     if weights.ndim == 1:
         return np.diag(weights)
     else:
-        return np.diag(weights[0])
+        return np.diag(weights)
 
 
 def calculateControl(state, A, B, Q, R):
@@ -103,10 +103,17 @@ def simulate(state, t0, tf, n, qWeights, rWeights, tol):
 
     return sol
 
+def calcReward(sol):
+    # Calculate reward
+    reward = np.linalg.norm(sol.y[0:3, -1])
+    return reward
 
 def psoSimulateQ(qWeights, rWeights, state, t0, tf, n, tol):
-    sol = simulate(state, t0, tf, n, qWeights, rWeights, tol)
-    return 1 
+    reward = []
+    for i in range(len(qWeights)):
+        sol = simulate(state, t0, tf, n, qWeights[i], rWeights, tol)
+        reward.append(calcReward(sol))
+    return reward
 
 
 def psoSimulateR(rWeights, qWeights, state, t0, tf, n, tol):

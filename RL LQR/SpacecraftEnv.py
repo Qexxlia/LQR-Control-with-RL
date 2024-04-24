@@ -61,7 +61,11 @@ class SpacecraftEnv(gym.Env):
 
         # Define timeframe
         self.t0 = 0
-        self.tf = 200
+        self.tf = 20
+        
+        # Tracking Time / Weight Updates
+        self.totalTime = 0
+        self.numUpdates = 0
         
         # Define tolerances
         self.tol = np.array([
@@ -83,6 +87,9 @@ class SpacecraftEnv(gym.Env):
         # Simulate dynamics
         sol = scd.simulate(self.state, self.t0, self.tf, self.n, qWeights, rWeights, self.tol)
         
+        self.numUpdates += 1
+        self.totalTime += sol.t[-1]
+        
         # Check if converged
         terminated = False
         if sol.status == 1:
@@ -97,7 +104,11 @@ class SpacecraftEnv(gym.Env):
         truncated = False
             
         # Calculate reward
-        reward = np.linalg.norm(self.state - self.prevState)
+        timePunishment = self.totalTime - self.t0
+        # deltaVPun = self.total_delV
+            
+        reward = -timePunishment # -deltaVPun
+
 
         # Return
         return self.state, reward, terminated, truncated, {}
