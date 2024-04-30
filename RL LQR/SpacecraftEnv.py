@@ -101,16 +101,10 @@ class SpacecraftEnv(gym.Env):
         timePunishment = (self.totalTime - self.t0)*0.25
         deltaVPun = self.dVT
         
-        print(timePunishment)
-        print(deltaVPun)
-            
         if noDeltaV:
             reward = -5000
         else:
             reward = -timePunishment + -deltaVPun
-        
-        print(reward)
-        print()
 
         # Return
         return self.state, reward, terminated, truncated, {}
