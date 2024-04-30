@@ -8,7 +8,7 @@ from gymnasium import Env
 
 class testEnv(Env):
     
-    def __init__(self, render_mode = "human"):
+    def __init__(self, render_mode = "none"):
         
         # Define Inital State parameters
         self.initialState = np.array([
