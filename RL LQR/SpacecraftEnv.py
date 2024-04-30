@@ -98,13 +98,19 @@ class SpacecraftEnv(gym.Env):
         truncated = False
             
         # Calculate reward
-        timePunishment = self.totalTime - self.t0
-        deltaVPun = -self.dVT
+        timePunishment = (self.totalTime - self.t0)*0.25
+        deltaVPun = self.dVT
+        
+        print(timePunishment)
+        print(deltaVPun)
             
         if noDeltaV:
-            reward = -1000000000000
+            reward = -5000
         else:
-            reward = -timePunishment  - deltaVPun
+            reward = -timePunishment + -deltaVPun
+        
+        print(reward)
+        print()
 
         # Return
         return self.state, reward, terminated, truncated, {}
@@ -112,5 +118,12 @@ class SpacecraftEnv(gym.Env):
     def reset(self, *, seed = None, options = None):
         # Reset state
         self.state = self.initialState
+
+        self.dVT = 0
+
+        self.totalTime = 0
+        self.t0 = 0
         
+        self.numUpdates = 0
+
         return np.array(self.state), {}

@@ -108,7 +108,7 @@ def simulate(state, timeRange, qWeights):
 
 def convergeEvent(t, state, qWeights):
     posTol = 1e-3
-    velTol = 1e-3
+    velTol = 1e-6
     
     tol = np.array([posTol, posTol, posTol, velTol, velTol, velTol])
 
