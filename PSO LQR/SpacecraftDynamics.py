@@ -16,27 +16,34 @@ X = [
 ]
 '''
 
+def printAMatrice(a, mu):
+    n = np.sqrt(mu/a**3)
 
-def matrices(n, qWeights, rWeights):
-    # Get matrices
-
-    # Calculate A matrix
-    A14 = 3*np.float_power(n, 2)
-    A54 = 2*n
-    A45 = -2*n
-    A36 = -np.float_power(n, 2)
-
-    # Define A,B,Q,R matrices
     A = np.array(
         [
             [  0,   0,   0,   1,   0,   0],
             [  0,   0,   0,   0,   1,   0],
             [  0,   0,   0,   0,   0,   1],
-            [A14,   0,   0,   0, A54,   0],
-            [  0,   0,   0, A45,   0,   0],
-            [  0,   0, A36,   0,   0,   0]
+            [3*n**2,   0,   0,   0, 2*n,   0],
+            [  0,   0,   0, -2*n,   0,   0],
+            [  0,   0, -n**2,   0,   0,   0]
         ], dtype=np.float32
     )
+    
+    print(A)
+
+def matrices(qWeights):
+    # Get matrices
+
+    # Constants
+    A = np.array([
+        [ 0.000000e+00,  0.000000e+00,  0.000000e+00,  1.000000e+00,  0.000000e+00, 0.000000e+00],
+        [ 0.000000e+00,  0.000000e+00,  0.000000e+00,  0.000000e+00,  1.000000e+00, 0.000000e+00],
+        [ 0.000000e+00,  0.000000e+00,  0.000000e+00,  0.000000e+00,  0.000000e+00, 1.000000e+00],
+        [ 2.834492e-06,  0.000000e+00,  0.000000e+00,  0.000000e+00,  1.944048e-03, 0.000000e+00],
+        [ 0.000000e+00,  0.000000e+00,  0.000000e+00, -1.944048e-03,  0.000000e+00, 0.000000e+00],
+        [ 0.000000e+00,  0.000000e+00, -9.448307e-07,  0.000000e+00,  0.000000e+00, 0.000000e+00],
+    ])
 
     B = np.array(
         [
@@ -49,20 +56,12 @@ def matrices(n, qWeights, rWeights):
         ], dtype=np.float32
     )
 
-    q = createDiag(qWeights)
+    q = np.diag(qWeights)
     Q = np.dot(q, np.transpose(q))
 
-    r = createDiag(rWeights)
-    R = np.dot(r, np.transpose(r))
+    R = np.diag([1, 1, 1])
 
     return A, B, Q, R
-
-def createDiag(weights):
-    if weights.ndim == 1:
-        return np.diag(weights)
-    else:
-        return np.diag(weights)
-
 
 def calculateControl(state, A, B, Q, R):
 
@@ -70,68 +69,51 @@ def calculateControl(state, A, B, Q, R):
     [K, S, E] = ctrl.lqr(A, B, Q, R, method='scipy')
 
     # Calculate control
-    u = np.matmul(-K, state)
+    u = -K @ state[0:6]
 
     # Cap control
-    # u_max = 16
-    # if(np.linalg.norm(u) > u_max):
-    # u = (u / np.linalg.norm(u))*u_max
+    u_max = 5e-3 # CANNOT BE BELOW 4.1e-6
+    normU = np.linalg.norm(u)
+    if(normU > u_max):
+        u = (u / normU)*u_max
+        
+    # Calculate mass change
+    Isp = 1000
+    dMass = -np.linalg.norm(u)*(state[6]/(Isp*(9.81E-3)))
+        
+    return u, dMass
 
-    return u
 
-
-def nextState(t, state, n, qWeights, rWeights, tol):
+def nextState(t, state, qWeights):
     # Get control
-    [A, B, Q, R] = matrices(n, qWeights, rWeights)
-    u = calculateControl(state, A, B, Q, R)
+    [A, B, Q, R] = matrices(qWeights)
+    [u, dMass] = calculateControl(state, A, B, Q, R)
 
     # Calculate change
-    dState = np.matmul(A, state) + np.matmul(B, u)
+    dState = np.append((A @ state[0:6]) + (B @ u), dMass)
 
     return dState
 
-
-def simulate(state, t0, tf, n, qWeights, rWeights, tol):
-
+def simulate(state, timeRange, qWeights):
+    
     sol = integrate.solve_ivp(
         nextState,
-        (t0, tf),
+        timeRange,
         state,
-        args=(n, qWeights, rWeights, tol),
-        events=convergeEvent
+        args=(qWeights, ),
+        events=(convergeEvent, massEvent)
     )
 
     return sol
 
-def calcReward(sol):
-    # Calculate reward
-    reward = np.linalg.norm(sol.y[0:3, -1])
-    return reward
+def convergeEvent(t, state, qWeights):
+    posTol = 1e-3
+    velTol = 1e-3
+    
+    tol = np.array([posTol, posTol, posTol, velTol, velTol, velTol])
 
-def psoSimulateQ(qWeights, rWeights, state, t0, tf, n, tol):
-    reward = []
-    for i in range(len(qWeights)):
-        sol = simulate(state, t0, tf, n, qWeights[i], rWeights, tol)
-        reward.append(calcReward(sol))
-    return reward
-
-
-def psoSimulateR(rWeights, qWeights, state, t0, tf, n, tol):
-    sol = simulate(state, t0, tf, n, qWeights, rWeights, tol)
-    return sol
-
-
-def psoSimulateQR(weights, state, t0, tf, n, tol):
-    qWeights = weights[0:6]
-    rWeights = weights[6:9]
-
-    sol = simulate(state, t0, tf, n, qWeights, rWeights, tol)
-    return sol
-
-
-def convergeEvent(t, state, n, qWeights, rWeights, tol):
     exit = 0
-    for i in range(6):
+    for i in range(5):
         if abs(state[i]) > tol[i]:
             exit += 1
 
@@ -139,11 +121,16 @@ def convergeEvent(t, state, n, qWeights, rWeights, tol):
         return 0
 
     return 1
-
-
 convergeEvent.terminal = True
 convergeEvent.direction = 0
 
+def massEvent(t, state, qWeights):
+    satelliteMass = 500 
+    if state[6] < satelliteMass:
+        return 0
+    return 1
+massEvent.terminal = True
+massEvent.direction = 0 
 
 def plot(sol):
     # Colors

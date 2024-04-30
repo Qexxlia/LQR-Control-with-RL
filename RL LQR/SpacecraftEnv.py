@@ -82,14 +82,14 @@ class SpacecraftEnv(gym.Env):
 
         # Check if converged
         terminated = False
+        noDeltaV = False
+
         if sol.status == 1:
             if sol.t_events[0].size != 0:
-                print("Converged")
-                print(sol.t_events)
+                converged = True
                 terminated = True
             elif sol.t_events[1].size != 0:
-                print("No Fuel Mass")
-                print(sol.t_events)
+                noDeltaV = True
                 terminated = True
         else:
             self.state = sol.y[:,-1]
@@ -101,11 +101,10 @@ class SpacecraftEnv(gym.Env):
         timePunishment = self.totalTime - self.t0
         deltaVPun = -self.dVT
             
-        reward = -timePunishment  - deltaVPun
-        print("Reward: ", reward)
-        
-        print("qWeights: ", qWeights)
-        scd.plot(sol)
+        if noDeltaV:
+            reward = -1000000000000
+        else:
+            reward = -timePunishment  - deltaVPun
 
         # Return
         return self.state, reward, terminated, truncated, {}

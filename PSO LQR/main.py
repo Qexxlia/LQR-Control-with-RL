@@ -15,7 +15,7 @@ def spacecraft():
     mu = 3.986e5
     n = np.sqrt(mu/a**3)
 
-    # Inital State
+    # Initial State
     state = np.array([
         8.205e-2,
         0.816,
@@ -23,17 +23,14 @@ def spacecraft():
         -1.014e-4,
         -1.912e-4,
         9.993e-4,
+        1000,
     ], dtype=np.float32)
 
     # Weights
     qWeights = np.array([1, 1, 1, 1, 1, 1], dtype=np.float32)
-    rWeights = np.array([1, 1, 1], dtype=np.float32)
     
-    # Tolerance
-    tol = np.array([0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
-
     # Solve
-    sol = scd.simulate(state, 0, 20, n, qWeights, rWeights, tol)
+    sol = scd.simulate(state, (0, 200000), qWeights)
 
     # Plot
     scd.plot(sol)
@@ -69,9 +66,8 @@ def spacecraft_pso():
     # Optimizer
     optimizer = ps.single.GlobalBestPSO(n_particles=20, dimensions=6, options=options)
     
-    kwargs = {"rWeights":rWeights, "state":state, "t0":0, "tf":20, "n":n, "tol":tol}
+    kwargs = {"state":state, "timeRange":(0,20)}
     cost, pos = optimizer.optimize(scd.psoSimulateQ, 1000, **kwargs)
-    
     
 
 ''' DRONE DYNAMICS '''
@@ -113,4 +109,4 @@ def drone():
 
     dd.plot(sol)
     
-spacecraft_pso()
+spacecraft()

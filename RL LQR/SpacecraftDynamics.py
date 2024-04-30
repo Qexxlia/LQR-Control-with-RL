@@ -69,10 +69,10 @@ def calculateControl(state, A, B, Q, R):
     [K, S, E] = ctrl.lqr(A, B, Q, R, method='scipy')
 
     # Calculate control
-    u = np.matmul(-K, state[0:6])
+    u = -K @ state[0:6]
 
     # Cap control
-    u_max = 1e-6
+    u_max = 5e-3 # CANNOT BE BELOW 4.1e-6
     normU = np.linalg.norm(u)
     if(normU > u_max):
         u = (u / normU)*u_max
@@ -90,7 +90,7 @@ def nextState(t, state, qWeights):
     [u, dMass] = calculateControl(state, A, B, Q, R)
 
     # Calculate change
-    dState = np.append((np.matmul(A, state[0:6]) + np.matmul(B, u)), dMass)
+    dState = np.append((A @ state[0:6]) + (B @ u), dMass)
 
     return dState
 
