@@ -12,7 +12,7 @@ obs = env.reset()
 checkpoint_callback = CheckpointCallback(save_freq=1000, save_path="./models/Spacecraft/A2C/checkpoints/", name_prefix="model", verbose=2)
 model = a2c.A2C("MlpPolicy", env, verbose=1, tensorboard_log="./models/Spacecraft/A2C/logs/")
 
-model.learn(total_timesteps=10000, progress_bar=True, callback=checkpoint_callback)
+model.learn(total_timesteps=150000, progress_bar=True, callback=checkpoint_callback)
 
 vec_env = model.get_env()
 obs = vec_env.reset()
