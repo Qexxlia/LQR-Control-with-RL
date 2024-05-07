@@ -101,7 +101,7 @@ def simulate(state, timeRange, qWeights):
         nextState,
         timeRange,
         state,
-        max_step = 0.1,
+        # max_step = 0.1,
         args=(qWeights, ),
         events=(convergeEvent, massEvent),
     )

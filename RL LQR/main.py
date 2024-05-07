@@ -15,14 +15,14 @@ obs = env.reset()
 
 timeStr = time.strftime("%Y%m%d-%H%M%S")
 
-eval_callback = EvalCallback(env, best_model_save_path="./models/Spacecraft/A2C/" + timeStr + "/best_model/", log_path="./models/Spacecraft/A2C/" + timeStr + "/evaluations/", eval_freq=25, deterministic=True, render=False, verbose=1)
+eval_callback = EvalCallback(env, best_model_save_path="./models/Spacecraft/A2C/" + timeStr + "/best_model/", log_path="./models/Spacecraft/A2C/" + timeStr + "/evaluations/", eval_freq=500, deterministic=True, render=False, verbose=1)
 
 callbacks = CallbackList([eval_callback])
 
-model = A2C("MlpPolicy", env, verbose=1, tensorboard_log="./models/Spacecraft/A2C/logs/")
+model = A2C("MlpPolicy", env, verbose=1, tensorboard_log="./models/Spacecraft/A2C/" + timeStr + "/logs/")
 # model = A2C.load("./models/Spacecraft/A2C/20240507-164406 - SI/best_model/best_model.zip", env=env, tensorboard_log="./models/Spacecraft/A2C/logs/", verbose = 1)
 
-model.learn(total_timesteps=10000, progress_bar=True, callback=callbacks)
+model.learn(total_timesteps=450000, progress_bar=True, callback=callbacks)
 
 # vec_env = model.get_env()
 # obs = vec_env.reset()

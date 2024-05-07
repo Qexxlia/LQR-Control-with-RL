@@ -58,12 +58,12 @@ class SpacecraftEnv(gym.Env):
 
         # Define timeframe
         self.tStep = 10
+        self.currentTime = 0
         self.t0 = 0
         
         self.dVT = 0
         
         # Tracking Time / Weight Updates
-        self.totalTime = 0
         self.numUpdates = 0
         
     def step(self, action):
@@ -96,21 +96,18 @@ class SpacecraftEnv(gym.Env):
         # Cannot be truncated with fixed time step
         truncated = False
             
-        # Calculate reward
-        timePunishment = self.totalTime - self.t0
-        deltaVPunishment = self.dVT
         
+        # Calculate reward
         reward = 0
 
         if noDeltaV:
             reward = -5000
         elif converged:
+            timePunishment = self.currentTime - self.t0
+            deltaVPunishment = self.dVT
             reward = - timePunishment - deltaVPunishment
+            # print("TP : ", timePunishment, " DVP: ", deltaVPunishment, " R: ", reward)
             
-        # print("Delta V: ", self.dVT)
-        # print("Time: ", self.totalTime)
-        # print("Reward: ", reward)
-
         # Update state
         self.state = sol.y[:,-1]
         
@@ -127,7 +124,7 @@ class SpacecraftEnv(gym.Env):
 
         self.dVT = 0
 
-        self.totalTime = 0
+        self.currentTime = 0
         self.t0 = 0
         
         self.numUpdates = 0
