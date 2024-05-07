@@ -30,6 +30,7 @@ class SpacecraftEnv(gym.Env):
             1,
             1,
             1,
+            1,
         ], dtype=np.float32)
 
         self.action_space = gym.spaces.Box(
@@ -57,7 +58,7 @@ class SpacecraftEnv(gym.Env):
         )
 
         # Define timeframe
-        self.tStep = 10
+        self.tStep = 0 
         self.t0 = 0
         
         self.dVT = 0
@@ -68,15 +69,18 @@ class SpacecraftEnv(gym.Env):
         
     def step(self, action):
         # Define action
-        qWeights = action
+        qWeights = action[0:6]
         
-        timeRange = (self.currentTime, self.currentTime + self.tStep)
+        # time action
+        self.tStep = self.denormalise_time_action(action[6])
+        
+        timeRange = (self.t0, self.t0 + self.tStep)
      
         # Simulate dynamics
         sol = scd.simulate(self.state, timeRange, qWeights)
         
         self.numUpdates += 1
-        self.currentTime = sol.t[-1]
+        self.totalTime += sol.t[-1]
         
         self.dVT -= sol.y[6, -1] - sol.y[6, 0]
 
@@ -113,6 +117,7 @@ class SpacecraftEnv(gym.Env):
 
         # Update state
         self.state = sol.y[:,-1]
+        self.t0 = sol.t[-1]
         
         # scd.plot(sol)
 
@@ -146,3 +151,7 @@ class SpacecraftEnv(gym.Env):
         normalisedState[6] = state[6]/self.initialState[6]
         
         return normalisedState
+    
+    def denormalise_time_action(self, action):
+        action = (action + 1) * 10
+        return action
