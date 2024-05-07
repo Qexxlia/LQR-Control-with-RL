@@ -24,12 +24,12 @@ class SpacecraftEnv(gym.Env):
 
         # Define the action space
         actionLimits = np.array([
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
         ], dtype=np.float32)
 
         self.action_space = gym.spaces.Box(
@@ -41,13 +41,13 @@ class SpacecraftEnv(gym.Env):
         # Define the observation space
         
         observationLimits = np.array([
-            100000,
-            100000,
-            100000,
-            1000,
-            1000,
-            1000,
-            1000,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
         ], dtype=np.float32)
         
         self.observation_space = gym.spaces.Box(
@@ -57,8 +57,8 @@ class SpacecraftEnv(gym.Env):
         )
 
         # Define timeframe
+        self.tStep = 20000000 
         self.t0 = 0
-        self.tf = 20000000 
         
         self.dVT = 0
         
@@ -70,7 +70,7 @@ class SpacecraftEnv(gym.Env):
         # Define action
         qWeights = action
         
-        timeRange = (self.t0, self.tf)
+        timeRange = (0, self.tStep)
      
         # Simulate dynamics
         sol = scd.simulate(self.state, timeRange, qWeights)
@@ -82,32 +82,43 @@ class SpacecraftEnv(gym.Env):
 
         # Check if converged
         terminated = False
+        converged = False
         noDeltaV = False
 
-        if sol.status == 1:
-            if sol.t_events[0].size != 0:
-                converged = True
-                terminated = True
-            elif sol.t_events[1].size != 0:
-                noDeltaV = True
-                terminated = True
-        else:
-            self.state = sol.y[:,-1]
+        if sol.t_events[0].size != 0:
+            converged = True
+            terminated = True
+        elif sol.t_events[1].size != 0:
+            noDeltaV = True
+            terminated = True
+
             
-        # Check if truncated #TODO
+        # Cannot be truncated with fixed time step
         truncated = False
             
         # Calculate reward
-        timePunishment = (self.totalTime - self.t0)*0.25
+        timePunishment = self.totalTime - self.t0
         deltaVPun = self.dVT
         
+        reward = 0
+
         if noDeltaV:
             reward = -5000
-        else:
-            reward = -timePunishment + -deltaVPun
+        elif converged:
+            reward = - timePunishment - deltaVPun
+            
+        # print("Delta V: ", self.dVT)
+        # print("Time: ", self.totalTime)
+        # print("Reward: ", reward)
+
+        # Update state
+        self.state = sol.y[:,-1]
+        self.t0 = sol.t[-1]
+
+        normalisedState = self.normalise_state(self.state)
 
         # Return
-        return self.state, reward, terminated, truncated, {}
+        return normalisedState, reward, terminated, truncated, {}
     
     def reset(self, *, seed = None, options = None):
         # Reset state
@@ -116,8 +127,20 @@ class SpacecraftEnv(gym.Env):
         self.dVT = 0
 
         self.totalTime = 0
-        self.t0 = 0
         
         self.numUpdates = 0
 
-        return np.array(self.state), {}
+        return self.state, {}
+    
+    def normalise_state (self, state):
+        normalisedState = np.zeros(state.shape)
+        
+        normalisedState[0] = state[0]/self.initialState[0]
+        normalisedState[1] = state[1]/self.initialState[1]
+        normalisedState[2] = state[2]/self.initialState[2]
+        normalisedState[3] = state[3]/self.initialState[3]
+        normalisedState[4] = state[4]/self.initialState[4]
+        normalisedState[5] = state[5]/self.initialState[5]
+        normalisedState[6] = state[6]/self.initialState[6]
+        
+        return normalisedState

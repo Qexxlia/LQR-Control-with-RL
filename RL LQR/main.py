@@ -1,18 +1,34 @@
-from stable_baselines3 import a2c
+from stable_baselines3 import A2C 
+from stable_baselines3 import PPO 
 from SpacecraftEnv import SpacecraftEnv as spe
-from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.callbacks import CallbackList
+
+from Callbacks import TensorBoardCallback
 
 import SpacecraftDynamics as scd
+import time
+
 
 # scd.printAMatrice(7500, 3.986004418E5)
 
 env = spe()
 obs = env.reset()
 
-checkpoint_callback = CheckpointCallback(save_freq=1000, save_path="./models/Spacecraft/A2C/checkpoints/", name_prefix="model", verbose=2)
-model = a2c.A2C("MlpPolicy", env, verbose=1, tensorboard_log="./models/Spacecraft/A2C/logs/")
+timeStr = time.strftime("%Y%m%d-%H%M%S")
 
-model.learn(total_timesteps=100000, progress_bar=True, callback=checkpoint_callback)
+eval_callback = EvalCallback(env, best_model_save_path="./models/Spacecraft/A2C/" + timeStr + "/best_model/", log_path="./models/Spacecraft/A2C/" + timeStr + "/evaluations/", eval_freq=25, deterministic=True, render=False, verbose=1)
+# tensorboard_callback = TensorBoardCallback(env)
 
-vec_env = model.get_env()
-obs = vec_env.reset()
+callbacks = CallbackList([eval_callback])
+
+model = A2C("MlpPolicy", env, verbose=1, tensorboard_log="./models/Spacecraft/A2C/logs/")
+# model = A2C.load("./models/Spacecraft/A2C/checkpoints/model_23000_steps.zip", env=env)
+
+model.learn(total_timesteps=10000, progress_bar=True, callback=callbacks)
+
+# vec_env = model.get_env()
+# obs = vec_env.reset()
+
+# model.predict(obs, deterministic=True)
+# obs = env.step(model.predict(obs, deterministic=True)[0])

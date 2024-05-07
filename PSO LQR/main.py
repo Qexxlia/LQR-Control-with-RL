@@ -5,24 +5,21 @@ import pyswarms as ps
 import SpacecraftDynamics as scd
 import DroneDynamics as dd
 
+import PSOEnv as env
+
 ''' SPACECRAFT DYNAMICS '''
 
 def spacecraft():
     print('Spacecraft Dynamics')
     
-    # Constants
-    a = 7500
-    mu = 3.986e5
-    n = np.sqrt(mu/a**3)
-
     # Initial State
     state = np.array([
-        8.205e-2,
-        0.816,
-        -3.056e-3,
-        -1.014e-4,
-        -1.912e-4,
-        9.993e-4,
+        1,
+        -1,
+        1.1,
+        0,
+        0,
+        0,
         1000,
     ], dtype=np.float32)
 
@@ -30,44 +27,26 @@ def spacecraft():
     qWeights = np.array([1, 1, 1, 1, 1, 1], dtype=np.float32)
     
     # Solve
-    sol = scd.simulate(state, (0, 200000), qWeights)
+    sol = scd.simulate(state, (0, 200000000), qWeights)
 
     # Plot
+    print(sol.y.shape)
     scd.plot(sol)
 
 
 def spacecraft_pso():
     print('Spacecraft Dynamics PSO')
     
-    # Constants
-    a = 7500
-    mu = 3.986e5
-    n = np.sqrt(mu/a**3)
-    
-    # Initial State
-    state = np.array([
-        8.205e-2,
-        0.816,
-        -3.056e-3,
-        -1.014e-4,
-        -1.912e-4,
-        9.993e-4,
-    ], dtype=np.float32)
-    
-    # Weight Matrices
-    rWeights = np.array([1, 1, 1])
-
-    # Tolerance
-    tol = np.array([0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
-    
     # Hyperparameters
     options = {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
     
-    # Optimizer
-    optimizer = ps.single.GlobalBestPSO(n_particles=20, dimensions=6, options=options)
+    # Bounds
+    bounds = (np.array([0, 0, 0, 0, 0, 0]), np.array([1, 1, 1, 1, 1, 1]))
     
-    kwargs = {"state":state, "timeRange":(0,20)}
-    cost, pos = optimizer.optimize(scd.psoSimulateQ, 1000, **kwargs)
+    # Optimizer
+    optimizer = ps.single.GlobalBestPSO(n_particles=20, dimensions=6, options=options, bounds=bounds)
+
+    cost, pos = optimizer.optimize(env.simulate, 100)
     
 
 ''' DRONE DYNAMICS '''
@@ -109,4 +88,4 @@ def drone():
 
     dd.plot(sol)
     
-spacecraft()
+spacecraft_pso()

@@ -56,8 +56,7 @@ def matrices(qWeights):
         ], dtype=np.float32
     )
 
-    q = np.diag(qWeights)
-    Q = np.dot(q, np.transpose(q))
+    Q = np.diag(qWeights)
 
     R = np.diag([1, 1, 1])
 
@@ -72,7 +71,7 @@ def calculateControl(state, A, B, Q, R):
     u = -K @ state[0:6]
 
     # Cap control
-    u_max = 5e-3 # CANNOT BE BELOW 4.1e-6
+    u_max = 5e200 # CANNOT BE BELOW 4.1e-6
     normU = np.linalg.norm(u)
     if(normU > u_max):
         u = (u / normU)*u_max
@@ -91,24 +90,27 @@ def nextState(t, state, qWeights):
 
     # Calculate change
     dState = np.append((A @ state[0:6]) + (B @ u), dMass)
-
+    
     return dState
 
 def simulate(state, timeRange, qWeights):
+    
+    qWeights = np.absolute(qWeights)
     
     sol = integrate.solve_ivp(
         nextState,
         timeRange,
         state,
+        max_step = 0.1,
         args=(qWeights, ),
-        events=(convergeEvent, massEvent)
+        events=(convergeEvent, massEvent),
     )
 
     return sol
 
 def convergeEvent(t, state, qWeights):
     posTol = 1e-3
-    velTol = 1e-3
+    velTol = 1e-6
     
     tol = np.array([posTol, posTol, posTol, velTol, velTol, velTol])
 
@@ -154,14 +156,14 @@ def plot(sol):
     ax[0].plot(sol.t, sol.y[2, :], label='z', color=zc, linewidth=lw)
 
     ax[0].set_title('Position vs Time', fontsize=tsL)
-    ax[0].set_ylabel('Position (m/s)', fontsize=tsS)
+    ax[0].set_ylabel('Position (km)', fontsize=tsS)
 
     ax[1].plot(sol.t, sol.y[3, :], color=xc, linewidth=lw)
     ax[1].plot(sol.t, sol.y[4, :], color=yc, linewidth=lw)
     ax[1].plot(sol.t, sol.y[5, :], color=zc, linewidth=lw)
 
     ax[1].set_title('Velocity vs Time', fontsize=tsL)
-    ax[1].set_ylabel('Velocity (m/s)', fontsize=tsS)
+    ax[1].set_ylabel('Velocity (km/s)', fontsize=tsS)
 
     fig.legend(loc='upper right')
     plt.show()
