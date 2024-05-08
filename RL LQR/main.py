@@ -8,7 +8,7 @@ from SpacecraftEnv import SpacecraftEnv as spe
 from Callback import PlotCallback
 
 ###### TESTING FLAG ######
-Testing = False
+Testing = True
 
 # scd.printAMatrice(7500, 3.986004418E5)
 
@@ -18,9 +18,9 @@ obs = env.reset()
 timeStr = time.strftime("%Y%m%d-%H%M")
 
 learning_rate = 3e-4
-n_steps = 2048
+n_steps = 1024 
 batch_size = 64
-n_epochs = 20
+n_epochs = 10
 clip_range = 0.2
 gamma = 0.99
 
