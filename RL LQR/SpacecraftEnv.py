@@ -127,7 +127,7 @@ class SpacecraftEnv(gym.Env):
         normalisedState = self.normalise_state(self.state)
 
         # Return
-        return normalisedState, reward, self.terminated, truncated, {'pos': self.pos, 'vel': self.vel, 't': self.t}
+        return normalisedState, reward, self.terminated, truncated, {'pos': self.pos, 'vel': self.vel, 't': self.t, 'dVT': self.dVT}
     
     def reset(self, *, seed = None, options = None):
         # Reset state

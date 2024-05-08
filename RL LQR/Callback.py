@@ -33,18 +33,26 @@ class PlotCallback(BaseCallback):
             [obs, reward, done, info] = vec_env.step(action)
             [action, _states] = self.model.predict(obs, deterministic=True)
             
-        pos = info[0].get('pos')
-        vel = info[0].get('vel')
-        t = info[0].get('t')
+        pos = info[-1].get('pos')
+        vel = info[-1].get('vel')
+        t = info[-1].get('t')
 
+        # Plot the state and output to tensorboard
         fig = scd.plot1(pos, vel, t)
-        self.logger.record("figures/state", Figure(fig, close = True), exclude=("stdout", "log", "json", "csv"))
+        self.logger.record("rollout/ep_state_figure", Figure(fig, close = True), exclude=("stdout", "log", "json", "csv"))
         
-       # Create a DataFrame and export to CSV
+        # Create a DataFrame and export to CSV
         data = {'x': pos[0], 'y': pos[1], 'z': pos[2], 'vx': vel[0], 'vy': vel[1], 'vz': vel[2], 't': t}
         df = pd.DataFrame(data)
         name = self.csv_save_path + "state" + str(self.num_timesteps) + ".csv"
         df.to_csv(name, index=False)
+        
+        # Save deltaV and time to Tensorboard
+        time = t[-1]
+        deltaV = info[-1].get('dVT')
+
+        self.logger.record("rollout/ep_delta_v", deltaV, exclude=("stdout", "log", "json", "csv"))
+        self.logger.record("rollout/ep_time_elapsed", time, exclude=("stdout", "log", "json", "csv"))
     
         return True
     
