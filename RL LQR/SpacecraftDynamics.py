@@ -101,7 +101,7 @@ def simulate(state, timeRange, qWeights):
         nextState,
         timeRange,
         state,
-        # max_step = 0.1,
+        max_step = 0.25,
         args=(qWeights, ),
         events=(convergeEvent, massEvent),
     )
@@ -133,6 +133,41 @@ def massEvent(t, state, qWeights):
     return 1
 massEvent.terminal = True
 massEvent.direction = 0 
+
+def plot1(pos, vel, t):
+    # Colors
+    xc = 'red'
+    yc = 'blue'
+    zc = 'green'
+
+    # Lineweight
+    lw = 1
+
+    # Text Sizes
+    tsL = 12
+    tsS = 7
+
+    [fig, ax] = plt.subplots(2, sharex=True)
+    fig.suptitle('State vs Time', fontsize=tsL)
+    ax[1].set_xlabel('Time (s)', fontsize=tsS)
+    
+    ax[0].plot(t, pos[0, :], label='x', color=xc, linewidth=lw)
+    ax[0].plot(t, pos[1, :], label='y', color=yc, linewidth=lw)
+    ax[0].plot(t, pos[2, :], label='z', color=zc, linewidth=lw)
+
+    ax[0].set_title('Position vs Time', fontsize=tsL)
+    ax[0].set_ylabel('Position (km)', fontsize=tsS)
+
+    ax[1].plot(t, vel[0, :], color=xc, linewidth=lw)
+    ax[1].plot(t, vel[1, :], color=yc, linewidth=lw)
+    ax[1].plot(t, vel[2, :], color=zc, linewidth=lw)
+
+    ax[1].set_title('Velocity vs Time', fontsize=tsL)
+    ax[1].set_ylabel('Velocity (km/s)', fontsize=tsS)
+
+    fig.legend(loc='upper right')
+    
+    return fig
 
 def plot(sol):
     # Colors
