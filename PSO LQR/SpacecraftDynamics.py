@@ -101,7 +101,7 @@ def simulate(state, timeRange, qWeights):
         nextState,
         timeRange,
         state,
-        max_step = 0.25,
+        # max_step = 0.25,
         args=(qWeights, ),
         events=(convergeEvent, massEvent),
     )
@@ -147,7 +147,7 @@ def plot1(pos, vel, t):
     tsL = 12
     tsS = 7
 
-    [fig, ax] = plt.subplots(2, sharex=True)
+    [fig, ax] = plt.subplots(2, sharex=True, figsize=(10, 5))
     fig.suptitle('State vs Time', fontsize=tsL)
     ax[1].set_xlabel('Time (s)', fontsize=tsS)
     
@@ -157,6 +157,8 @@ def plot1(pos, vel, t):
 
     ax[0].set_title('Position vs Time', fontsize=tsL)
     ax[0].set_ylabel('Position (km)', fontsize=tsS)
+    ax[0].set_ylim(-0.25, 1.25)
+    ax[0].set_xlim(0, 70)
 
     ax[1].plot(t, vel[0, :], color=xc, linewidth=lw)
     ax[1].plot(t, vel[1, :], color=yc, linewidth=lw)
@@ -164,6 +166,8 @@ def plot1(pos, vel, t):
 
     ax[1].set_title('Velocity vs Time', fontsize=tsL)
     ax[1].set_ylabel('Velocity (km/s)', fontsize=tsS)
+    ax[0].set_ylim(-0.3, 0.15)
+    ax[0].set_xlim(0, 70)
 
     fig.legend(loc='upper right')
     

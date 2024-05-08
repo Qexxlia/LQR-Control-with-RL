@@ -10,6 +10,9 @@ from Callback import PlotCallback
 ###### TESTING FLAG ######
 Testing = True
 
+if input("Run as a test? (Y/n) : ") == 'n':
+    Testing = False
+
 # scd.printAMatrice(7500, 3.986004418E5)
 
 env = spe()
@@ -18,7 +21,7 @@ obs = env.reset()
 timeStr = time.strftime("%Y%m%d-%H%M")
 
 learning_rate = 3e-4
-n_steps = 1024 
+n_steps = 64 
 batch_size = 64
 n_epochs = 10
 clip_range = 0.2
@@ -42,7 +45,7 @@ if Testing:
 print("Saving to: ./models/Spacecraft/" + nameStr + "\n")
 
 eval_callback = EvalCallback(env, best_model_save_path="./models/Spacecraft/" + nameStr + "/best_model/", log_path="./models/Spacecraft/" + nameStr + "/evaluations/", eval_freq=250, deterministic=True, render=False, verbose=0)
-plot_callback = PlotCallback(verbose=0, save_path="./models/Spacecraft/" + nameStr + "/figures/")
+plot_callback = PlotCallback(verbose=0, csv_save_path="./models/Spacecraft/" + nameStr + "/data/")
 
 callbacks = CallbackList([eval_callback, plot_callback])
 
