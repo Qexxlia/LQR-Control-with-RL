@@ -188,4 +188,38 @@ def plot(sol):
 
     ax[0].plot(sol.t, sol.y[0, :], label='x', color=xc, linewidth=lw)
     ax[0].plot(sol.t, sol.y[1, :], label='y', color=yc, linewidth=lw)
-    ax[0].plot(sol.t, sol.y[2, 
+    ax[0].plot(sol.t, sol.y[2, :], label='z', color=zc, linewidth=lw)
+
+    ax[0].set_title('Position vs Time', fontsize=tsL)
+    ax[0].set_ylabel('Position (km)', fontsize=tsS)
+
+    ax[1].plot(sol.t, sol.y[3, :], color=xc, linewidth=lw)
+    ax[1].plot(sol.t, sol.y[4, :], color=yc, linewidth=lw)
+    ax[1].plot(sol.t, sol.y[5, :], color=zc, linewidth=lw)
+
+    ax[1].set_title('Velocity vs Time', fontsize=tsL)
+    ax[1].set_ylabel('Velocity (km/s)', fontsize=tsS)
+
+    fig.legend(loc='upper right')
+    plt.show()
+
+
+def plot3d(sol):
+    # Color
+    c = 'blue'
+
+    # Lineweight
+    lw = 1
+
+    # Text Sizes
+    tsL = 12
+    tsS = 7
+
+    fig3d = plt.figure()
+    ax3d = fig3d.add_subplot(111, projection='3d')
+    ax3d.plot(sol.y[0, :], sol.y[1, :], sol.y[2, :], linewidth=lw, color=c)
+    ax3d.set_xlabel('X', fontsize=tsS)
+    ax3d.set_ylabel('Y', fontsize=tsS)
+    ax3d.set_zlabel('Z', fontsize=tsS)
+    plt.title('Position', fontsize=tsL)
+    plt.show()
