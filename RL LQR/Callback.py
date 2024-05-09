@@ -21,17 +21,17 @@ class PlotCallback(BaseCallback):
         
         done = False
             
-        [action, _states] = self.model.predict(obs, deterministic=True)
-        self.logger.record("action/q1", action[0,0], exclude=("stdout", "log", "json", "csv"))
-        self.logger.record("action/q2", action[0,1], exclude=("stdout", "log", "json", "csv"))
-        self.logger.record("action/q3", action[0,2], exclude=("stdout", "log", "json", "csv"))
-        self.logger.record("action/q4", action[0,3], exclude=("stdout", "log", "json", "csv"))
-        self.logger.record("action/q5", action[0,4], exclude=("stdout", "log", "json", "csv"))
-        self.logger.record("action/q6", action[0,5], exclude=("stdout", "log", "json", "csv"))
-
+        [action, _state] = self.model.predict(obs, deterministic=True)
+        self.logger.record("action/q1", vec_env.env_method("map_range", action[0,0], -1, 1, 0, 1), exclude=("stdout", "log", "json", "csv"))
+        self.logger.record("action/q2", vec_env.env_method("map_range", action[0,1], -1, 1, 0, 1), exclude=("stdout", "log", "json", "csv"))
+        self.logger.record("action/q3", vec_env.env_method("map_range", action[0,2], -1, 1, 0, 1), exclude=("stdout", "log", "json", "csv"))
+        self.logger.record("action/q4", vec_env.env_method("map_range", action[0,3], -1, 1, 0, 1), exclude=("stdout", "log", "json", "csv"))
+        self.logger.record("action/q5", vec_env.env_method("map_range", action[0,4], -1, 1, 0, 1), exclude=("stdout", "log", "json", "csv"))
+        self.logger.record("action/q6", vec_env.env_method("map_range", action[0,5], -1, 1, 0, 1), exclude=("stdout", "log", "json", "csv"))
+       
         while not done:
             [obs, reward, done, info] = vec_env.step(action)
-            [action, _states] = self.model.predict(obs, deterministic=True)
+            [action, _state] = self.model.predict(obs, deterministic=True)
             
         pos = info[-1].get('pos')
         vel = info[-1].get('vel')

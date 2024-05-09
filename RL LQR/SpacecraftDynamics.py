@@ -95,8 +95,6 @@ def nextState(t, state, qWeights):
 
 def simulate(state, timeRange, qWeights):
     
-    qWeights = np.absolute(qWeights)
-    
     sol = integrate.solve_ivp(
         nextState,
         timeRange,

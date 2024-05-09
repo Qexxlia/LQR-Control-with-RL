@@ -7,7 +7,6 @@ import SpacecraftDynamics as scd
 class SpacecraftEnv(gym.Env):
     
     def __init__(self, render_mode = "none"):
-
         # Copy parameters
         self.render_mode = render_mode
 
@@ -23,19 +22,10 @@ class SpacecraftEnv(gym.Env):
         ], dtype=np.float32)
         
         self.maxPos = 1
-        self.maxVel = 0.25
-        
+        self.maxVel = 0.5
 
         # Define the action space
-        actionLimits = np.array([
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-        ], dtype=np.float32)
-
+        actionLimits = np.ones(6, dtype=np.float32)
         self.action_space = gym.spaces.Box(
             low = -actionLimits,
             high = actionLimits,
@@ -43,17 +33,7 @@ class SpacecraftEnv(gym.Env):
         )
         
         # Define the observation space
-        
-        observationLimits = np.array([
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-        ], dtype=np.float32)
-        
+        observationLimits = np.ones(7, dtype=np.float32)
         self.observation_space = gym.spaces.Box(
             low = -observationLimits,
             high = observationLimits,
@@ -65,12 +45,11 @@ class SpacecraftEnv(gym.Env):
         self.currentTime = 0
         self.t0 = 0
         
+        # Define deltaV usage
         self.dVT = 0
         
         # Tracking Time / Weight Updates
         self.numUpdates = 0
-        
-        self.terminated = False
         
         # Tracking position
         self.pos = np.atleast_2d(self.initialState[0:3]).T
@@ -78,7 +57,7 @@ class SpacecraftEnv(gym.Env):
         
     def step(self, action):
         # Define action
-        qWeights = action
+        qWeights = self.map_range(action, -1, 1, 0, 1)
         
         timeRange = (self.currentTime, self.currentTime + self.tStep)
      
@@ -93,18 +72,15 @@ class SpacecraftEnv(gym.Env):
         # Check if converged
         converged = False
         noDeltaV = False
+        terminated = False
+        truncated = False
 
         if sol.t_events[0].size != 0:
             converged = True
-            self.terminated = True
+            terminated = True
         elif sol.t_events[1].size != 0:
             noDeltaV = True
-            self.terminated = True
-
-            
-        # Cannot be truncated with fixed time step
-        truncated = False
-            
+            truncated = True
         
         # Calculate reward
         reward = 0
@@ -115,7 +91,6 @@ class SpacecraftEnv(gym.Env):
             timePunishment = self.currentTime - self.t0
             deltaVPunishment = self.dVT
             reward = - timePunishment - deltaVPunishment
-            # print("TP : ", timePunishment, " DVP: ", deltaVPunishment, " R: ", reward)
             
         # Update state
         self.state = sol.y[:,-1]
@@ -127,7 +102,7 @@ class SpacecraftEnv(gym.Env):
         normalisedState = self.normalise_state(self.state)
 
         # Return
-        return normalisedState, reward, self.terminated, truncated, {'pos': self.pos, 'vel': self.vel, 't': self.t, 'dVT': self.dVT}
+        return normalisedState, reward, terminated, truncated, {'pos': self.pos, 'vel': self.vel, 't': self.t, 'dVT': self.dVT}
     
     def reset(self, *, seed = None, options = None):
         # Reset state
@@ -143,13 +118,13 @@ class SpacecraftEnv(gym.Env):
         self.pos = np.atleast_2d(self.initialState[0:3]).T
         self.vel = np.atleast_2d(self.initialState[3:6]).T
         
-        self.terminated = False
-
         return self.state, {}
     
+
     def normalise_state (self, state):
+        # Normalise the state
         normalisedState = np.zeros(state.shape)
-        
+
         normalisedState[0] = state[0]/self.maxPos
         normalisedState[1] = state[1]/self.maxPos
         normalisedState[2] = state[2]/self.maxPos
@@ -159,3 +134,11 @@ class SpacecraftEnv(gym.Env):
         normalisedState[6] = state[6]/self.initialState[6]
         
         return normalisedState
+
+
+    def map_range(self, val, in_min, in_max, out_min, out_max):
+        # Map a value from one range to another
+        mapped = np.zeros(val.shape)
+        for i in range(len(val)):
+            mapped[i] = (val - in_min)/(in_max - in_min)*(out_max - out_min) + out_min
+        return mapped

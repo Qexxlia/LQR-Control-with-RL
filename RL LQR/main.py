@@ -36,16 +36,17 @@ log_std_init = np.log(1)
 
 device = 'cuda' #cpu or cuda
 
-nameStr = "PPO_" + timeStr + "__LR=" + str(learning_rate) + "__NS=" + str(n_steps) + "__BS=" + str(batch_size) + "__NE=" + str(n_epochs) + "__CR=" + str(clip_range) + "__G=" + str(gamma) + "__LSI=" + str(log_std_init)
 
 if Testing:
-    nameStr = "TEST/" + nameStr
+    nameStr = "./models/TESTING/spacecraft/" + "PPO_" + timeStr + "__LR=" + str(learning_rate) + "__NS=" + str(n_steps) + "__BS=" + str(batch_size) + "__NE=" + str(n_epochs) + "__CR=" + str(clip_range) + "__G=" + str(gamma) + "__LSI=" + str(log_std_init)
     print("TESTING MODE")
+else:
+    nameStr = "./models/spacecraft/" + "PPO_" + timeStr + "__LR=" + str(learning_rate) + "__NS=" + str(n_steps) + "__BS=" + str(batch_size) + "__NE=" + str(n_epochs) + "__CR=" + str(clip_range) + "__G=" + str(gamma) + "__LSI=" + str(log_std_init)
 
-print("Saving to: ./models/Spacecraft/" + nameStr + "\n")
+print("Saving to: " + nameStr + "\n")
 
-eval_callback = EvalCallback(env, best_model_save_path="./models/Spacecraft/" + nameStr + "/best_model/", log_path="./models/Spacecraft/" + nameStr + "/evaluations/", eval_freq=250, deterministic=True, render=False, verbose=0)
-plot_callback = PlotCallback(verbose=0, csv_save_path="./models/Spacecraft/" + nameStr + "/data/")
+eval_callback = EvalCallback(env, best_model_save_path=nameStr + "/best_model/", log_path=nameStr + "/evaluations/", eval_freq=250, deterministic=True, render=False, verbose=0)
+plot_callback = PlotCallback(verbose=0, csv_save_path=nameStr + "/data/")
 
 callbacks = CallbackList([eval_callback, plot_callback])
 
@@ -57,7 +58,7 @@ policy_kwargs = {
 model = PPO(
     "MlpPolicy", 
     env, 
-    tensorboard_log="./models/Spacecraft/" + nameStr + "/logs/",
+    tensorboard_log=nameStr + "/logs/",
     learning_rate=learning_rate,
     gamma=gamma,
     gae_lambda=gae_lambda,
