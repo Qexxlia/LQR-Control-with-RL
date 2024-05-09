@@ -95,8 +95,6 @@ def nextState(t, state, qWeights):
 
 def simulate(state, timeRange, qWeights):
     
-    qWeights = np.absolute(qWeights)
-    
     sol = integrate.solve_ivp(
         nextState,
         timeRange,
@@ -157,7 +155,7 @@ def plot1(pos, vel, t):
 
     ax[0].set_title('Position vs Time', fontsize=tsL)
     ax[0].set_ylabel('Position (km)', fontsize=tsS)
-    ax[0].set_ylim(-0.25, 1.25)
+    ax[0].set_ylim(-0.5, 1.25)
     ax[0].set_xlim(0, 70)
 
     ax[1].plot(t, vel[0, :], color=xc, linewidth=lw)
@@ -166,8 +164,8 @@ def plot1(pos, vel, t):
 
     ax[1].set_title('Velocity vs Time', fontsize=tsL)
     ax[1].set_ylabel('Velocity (km/s)', fontsize=tsS)
-    ax[0].set_ylim(-0.3, 0.15)
-    ax[0].set_xlim(0, 70)
+    ax[1].set_ylim(-0.5, 0.25)
+    ax[1].set_xlim(0, 70)
 
     fig.legend(loc='upper right')
     

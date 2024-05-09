@@ -15,8 +15,8 @@ def spacecraft():
     # Initial State
     state = np.array([
         1,
-        -1,
-        1.1,
+        1,
+        1,
         0,
         0,
         0,
@@ -44,9 +44,9 @@ def spacecraft_pso():
     bounds = (np.array([0, 0, 0, 0, 0, 0]), np.array([1, 1, 1, 1, 1, 1]))
     
     # Optimizer
-    optimizer = ps.single.GlobalBestPSO(n_particles=20, dimensions=6, options=options, bounds=bounds)
+    optimizer = ps.single.GlobalBestPSO(n_particles=150, dimensions=6, options=options, bounds=bounds)
 
-    cost, pos = optimizer.optimize(env.simulate, 100)
+    cost, pos = optimizer.optimize(env.simulate, 1000)
     
 
 ''' DRONE DYNAMICS '''

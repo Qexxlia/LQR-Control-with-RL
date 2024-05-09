@@ -21,7 +21,7 @@ obs = env.reset()
 timeStr = time.strftime("%Y%m%d-%H%M")
 
 learning_rate = 3e-4
-n_steps = 64 
+n_steps = 128
 batch_size = 64
 n_epochs = 10
 clip_range = 0.2
@@ -36,16 +36,17 @@ log_std_init = np.log(1)
 
 device = 'cuda' #cpu or cuda
 
-nameStr = "PPO_" + timeStr + "__LR=" + str(learning_rate) + "__NS=" + str(n_steps) + "__BS=" + str(batch_size) + "__NE=" + str(n_epochs) + "__CR=" + str(clip_range) + "__G=" + str(gamma) + "__LSI=" + str(log_std_init)
 
 if Testing:
-    nameStr = "TEST/" + nameStr
+    nameStr = "./models/TESTING/spacecraft/" + "PPO_" + timeStr + "__LR=" + str(learning_rate) + "__NS=" + str(n_steps) + "__BS=" + str(batch_size) + "__NE=" + str(n_epochs) + "__CR=" + str(clip_range) + "__G=" + str(gamma) + "__LSI=" + str(log_std_init)
     print("TESTING MODE")
+else:
+    nameStr = "./models/spacecraft/" + "PPO_" + timeStr + "__LR=" + str(learning_rate) + "__NS=" + str(n_steps) + "__BS=" + str(batch_size) + "__NE=" + str(n_epochs) + "__CR=" + str(clip_range) + "__G=" + str(gamma) + "__LSI=" + str(log_std_init)
 
-print("Saving to: ./models/Spacecraft/" + nameStr + "\n")
+print("Saving to: " + nameStr + "\n")
 
-eval_callback = EvalCallback(env, best_model_save_path="./models/Spacecraft/" + nameStr + "/best_model/", log_path="./models/Spacecraft/" + nameStr + "/evaluations/", eval_freq=250, deterministic=True, render=False, verbose=0)
-plot_callback = PlotCallback(verbose=0, csv_save_path="./models/Spacecraft/" + nameStr + "/data/")
+eval_callback = EvalCallback(env, best_model_save_path=nameStr + "/best_model/", log_path=nameStr + "/evaluations/", eval_freq=250, deterministic=True, render=False, verbose=0)
+plot_callback = PlotCallback(verbose=0, csv_save_path=nameStr + "/data/")
 
 callbacks = CallbackList([eval_callback, plot_callback])
 
@@ -57,7 +58,7 @@ policy_kwargs = {
 model = PPO(
     "MlpPolicy", 
     env, 
-    tensorboard_log="./models/Spacecraft/" + nameStr + "/logs/",
+    tensorboard_log=nameStr + "/logs/",
     learning_rate=learning_rate,
     gamma=gamma,
     gae_lambda=gae_lambda,
@@ -74,7 +75,7 @@ model = PPO(
 
 # model = A2C.load("./models/Spacecraft/A2C/20240507-164406 - SI/best_model/best_model.zip", env=env, tensorboard_log="./models/Spacecraft/A2C/logs/", verbose = 1)
 
-model.learn(total_timesteps=450000, progress_bar=True, callback=callbacks)
+model.learn(total_timesteps=200000, progress_bar=True, callback=callbacks)
 
 # vec_env = model.get_env()
 # obs = vec_env.reset()
