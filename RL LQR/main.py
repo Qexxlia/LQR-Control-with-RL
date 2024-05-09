@@ -21,7 +21,7 @@ obs = env.reset()
 timeStr = time.strftime("%Y%m%d-%H%M")
 
 learning_rate = 3e-4
-n_steps = 64 
+n_steps = 256 
 batch_size = 64
 n_epochs = 10
 clip_range = 0.2
@@ -74,7 +74,7 @@ model = PPO(
 
 # model = A2C.load("./models/Spacecraft/A2C/20240507-164406 - SI/best_model/best_model.zip", env=env, tensorboard_log="./models/Spacecraft/A2C/logs/", verbose = 1)
 
-model.learn(total_timesteps=450000, progress_bar=True, callback=callbacks)
+model.learn(total_timesteps=200000, progress_bar=True, callback=callbacks)
 
 # vec_env = model.get_env()
 # obs = vec_env.reset()
