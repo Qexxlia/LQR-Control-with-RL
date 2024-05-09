@@ -29,7 +29,7 @@ class PlotCallback(BaseCallback):
         self.logger.record("action/q4", vec_env.env_method("map_range", action[0,3], -1, 1, 0, 1)[0], exclude=("stdout", "log", "json", "csv"))
         self.logger.record("action/q5", vec_env.env_method("map_range", action[0,4], -1, 1, 0, 1)[0], exclude=("stdout", "log", "json", "csv"))
         self.logger.record("action/q6", vec_env.env_method("map_range", action[0,5], -1, 1, 0, 1)[0], exclude=("stdout", "log", "json", "csv"))
-        self.logger.record("action/time_step", vec_env.env_method("map_range", action[0,6], -1, 1, 1, 100), exclude=("stdout", "log", "json", "csv"))
+        self.logger.record("action/time_step", vec_env.env_method("map_range", action[0,6], -1, 1, 1, 100)[0], exclude=("stdout", "log", "json", "csv"))
 
         while not done:
             [obs, reward, done, info] = vec_env.step(action)

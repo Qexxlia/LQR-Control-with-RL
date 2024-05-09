@@ -1,13 +1,10 @@
 import numpy as np
 
-a = np.ones((3))
+b = np.array([1,2,3], dtype=np.float32)
 
-a = np.atleast_2d(a).T
+from SpacecraftEnv import SpacecraftEnv as spe
 
-b = np.zeros((6,2))
-
-c = np.hstack(a,b[0:3])
+SpacecraftEnv = spe()
+a = spe.map_range(spe, b, 0, 10, 10, 20)
 
 print(a)
-print(b)
-print(c)

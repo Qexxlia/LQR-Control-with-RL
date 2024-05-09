@@ -21,7 +21,7 @@ obs = env.reset()
 timeStr = time.strftime("%Y%m%d-%H%M")
 
 learning_rate = 3e-4
-n_steps = 256 
+n_steps = 1024 # 1024 seems to be the best balance
 batch_size = 64
 n_epochs = 10
 clip_range = 0.2
@@ -34,18 +34,22 @@ max_grad_norm = 0.5
 
 log_std_init = np.log(1)
 
-device = 'cuda' #cpu or cuda
+device = 'cpu' #cpu or cuda
+
+## NUM EPISODES
+num_episodes = 200
+num_time_steps = num_episodes * n_steps
 
 
 if Testing:
-    nameStr = "./models/TESTING/spacecraft/" + "PPO_" + timeStr + "__LR=" + str(learning_rate) + "__NS=" + str(n_steps) + "__BS=" + str(batch_size) + "__NE=" + str(n_epochs) + "__CR=" + str(clip_range) + "__G=" + str(gamma) + "__LSI=" + str(log_std_init)
+    nameStr = "./models/testing/spacecraft/" + "PPO_" + timeStr + "__LR=" + str(learning_rate) + "__NS=" + str(n_steps) + "__BS=" + str(batch_size) + "__NE=" + str(n_epochs) + "__CR=" + str(clip_range) + "__G=" + str(gamma) + "__LSI=" + str(log_std_init)
     print("TESTING MODE")
 else:
     nameStr = "./models/spacecraft/" + "PPO_" + timeStr + "__LR=" + str(learning_rate) + "__NS=" + str(n_steps) + "__BS=" + str(batch_size) + "__NE=" + str(n_epochs) + "__CR=" + str(clip_range) + "__G=" + str(gamma) + "__LSI=" + str(log_std_init)
 
 print("Saving to: " + nameStr + "\n")
 
-eval_callback = EvalCallback(env, best_model_save_path=nameStr + "/best_model/", log_path=nameStr + "/evaluations/", eval_freq=250, deterministic=True, render=False, verbose=0)
+eval_callback = EvalCallback(env, best_model_save_path=nameStr + "/best_model/", log_path=nameStr + "/evaluations/", eval_freq=200, deterministic=True, render=False, verbose=0)
 plot_callback = PlotCallback(verbose=0, csv_save_path=nameStr + "/data/")
 
 callbacks = CallbackList([eval_callback, plot_callback])
@@ -75,7 +79,7 @@ model = PPO(
 
 # model = A2C.load("./models/Spacecraft/A2C/20240507-164406 - SI/best_model/best_model.zip", env=env, tensorboard_log="./models/Spacecraft/A2C/logs/", verbose = 1)
 
-model.learn(total_timesteps=200000, progress_bar=True, callback=callbacks)
+model.learn(total_timesteps=num_time_steps, progress_bar=True, callback=callbacks)
 
 # vec_env = model.get_env()
 # obs = vec_env.reset()

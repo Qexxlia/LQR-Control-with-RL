@@ -57,7 +57,7 @@ class SpacecraftEnv(gym.Env):
         
     def step(self, action):
         # Define action
-        qWeights = self.map_range(action, -1, 1, 0, 1)
+        qWeights = self.map_range(action, -1, 1, 1e-16, 1)
         
         timeRange = (self.currentTime, self.currentTime + self.tStep)
      
@@ -138,7 +138,4 @@ class SpacecraftEnv(gym.Env):
 
     def map_range(self, val, in_min, in_max, out_min, out_max):
         # Map a value from one range to another
-        mapped = np.zeros(val.shape)
-        for i in range(len(val)):
-            mapped[i] = (val - in_min)/(in_max - in_min)*(out_max - out_min) + out_min
-        return mapped
+        return (val - in_min)/(in_max - in_min)*(out_max - out_min) + out_min
