@@ -21,7 +21,7 @@ obs = env.reset()
 timeStr = time.strftime("%Y%m%d-%H%M")
 
 learning_rate = 3e-4
-n_steps = 1024 # 1024 seems to be the best balance
+n_steps = 10 # 1024 seems to be the best balance
 batch_size = 64
 n_epochs = 10
 clip_range = 0.2

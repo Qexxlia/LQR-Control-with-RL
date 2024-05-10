@@ -93,7 +93,7 @@ def nextState(t, state, qWeights, rWeights):
     
     return dState
 
-def simulate(state, timeRange, qWeights):
+def simulate(state, timeRange, qWeights, rWeights):
     
     sol = integrate.solve_ivp(
         nextState,
