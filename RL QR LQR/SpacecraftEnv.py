@@ -7,7 +7,6 @@ import SpacecraftDynamics as scd
 class SpacecraftEnv(gym.Env):
     
     def __init__(self, render_mode = "none"):
-
         # Copy parameters
         self.render_mode = render_mode
 
@@ -23,10 +22,10 @@ class SpacecraftEnv(gym.Env):
         ], dtype=np.float32)
         
         self.maxPos = 1
-        self.maxVel = 0.25
+        self.maxVel = 0.5
 
         # Define the action space
-        actionLimits = np.ones(7, dtype=np.float32)
+        actionLimits = np.ones(9, dtype=np.float32)
         self.action_space = gym.spaces.Box(
             low = -actionLimits,
             high = actionLimits,
@@ -34,46 +33,48 @@ class SpacecraftEnv(gym.Env):
         )
         
         # Define the observation space
-        observationLimits = np.ones(7, dtype=np.float32)    
+        observationLimits = np.ones(7, dtype=np.float32)
         self.observation_space = gym.spaces.Box(
             low = -observationLimits,
             high = observationLimits,
             dtype = np.float32
         )
 
-        # Define base timeframe
+        # Define timeframe
         self.tStep = 10
         self.currentTime = 0
         self.t0 = 0
-
-        # Track delta-V usage
+        
+        # Define deltaV usage
         self.dVT = 0
+        
+        # Tracking Time / Weight Updates
+        self.numUpdates = 0
         
         # Tracking position
         self.pos = np.atleast_2d(self.initialState[0:3]).T
         self.vel = np.atleast_2d(self.initialState[3:6]).T
         
     def step(self, action):
-        # Define mapped action
-        qWeights = self.map_range(action[0:6], -1, 1, 0, 1)
-        self.tStep = self.map_range(action[6], -1, 1, 1, 100)
-        rWeights = np.ones(3)
+        # Define action
+        qWeights = self.map_range(action[0:6], -1, 1, 1e-16, 1)
+        rWeights = self.map_range(action[6:9], -1, 1, 1e-16, 1)
         
-        # Set time range
         timeRange = (self.currentTime, self.currentTime + self.tStep)
      
         # Simulate dynamics
         sol = scd.simulate(self.state, timeRange, qWeights, rWeights)
         
+        self.numUpdates += 1
         self.currentTime = sol.t[-1]
         
         self.dVT -= sol.y[6, -1] - sol.y[6, 0]
 
-        # Check if converged / truncated
+        # Check if converged
         converged = False
         noDeltaV = False
-        truncated = False
         terminated = False
+        truncated = False
 
         if sol.t_events[0].size != 0:
             converged = True
@@ -111,6 +112,7 @@ class SpacecraftEnv(gym.Env):
         self.dVT = 0
 
         self.currentTime = 0
+        self.numUpdates = 0
         self.t0 = 0
         
         self.t = np.zeros(1)
@@ -119,10 +121,11 @@ class SpacecraftEnv(gym.Env):
         
         return self.state, {}
     
+
     def normalise_state (self, state):
-        # Normalise state
+        # Normalise the state
         normalisedState = np.zeros(state.shape)
-        
+
         normalisedState[0] = state[0]/self.maxPos
         normalisedState[1] = state[1]/self.maxPos
         normalisedState[2] = state[2]/self.maxPos
@@ -132,6 +135,7 @@ class SpacecraftEnv(gym.Env):
         normalisedState[6] = state[6]/self.initialState[6]
         
         return normalisedState
+
 
     def map_range(self, val, in_min, in_max, out_min, out_max):
         # Map a value from one range to another
