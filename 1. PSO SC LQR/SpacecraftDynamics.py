@@ -32,7 +32,7 @@ def printAMatrice(a, mu):
     
     print(A)
 
-def matrices(qWeights):
+def matrices(qWeights, rWeights):
     # Get matrices
 
     # Constants
@@ -58,7 +58,7 @@ def matrices(qWeights):
 
     Q = np.diag(qWeights)
 
-    R = np.diag([1, 1, 1])
+    R = np.diag(rWeights)
 
     return A, B, Q, R
 
@@ -83,9 +83,9 @@ def calculateControl(state, A, B, Q, R):
     return u, dMass
 
 
-def nextState(t, state, qWeights):
+def nextState(t, state, qWeights, rWeights):
     # Get control
-    [A, B, Q, R] = matrices(qWeights)
+    [A, B, Q, R] = matrices(qWeights, rWeights)
     [u, dMass] = calculateControl(state, A, B, Q, R)
 
     # Calculate change
@@ -93,20 +93,20 @@ def nextState(t, state, qWeights):
     
     return dState
 
-def simulate(state, timeRange, qWeights):
+def simulate(state, timeRange, qWeights, rWeights):
     
     sol = integrate.solve_ivp(
         nextState,
         timeRange,
         state,
         # max_step = 0.25,
-        args=(qWeights, ),
+        args=(qWeights, rWeights),
         events=(convergeEvent, massEvent),
     )
 
     return sol
 
-def convergeEvent(t, state, qWeights):
+def convergeEvent(t, state, qWeights, rWeights):
     posTol = 1e-3
     velTol = 1e-6
     
@@ -124,7 +124,7 @@ def convergeEvent(t, state, qWeights):
 convergeEvent.terminal = True
 convergeEvent.direction = 0
 
-def massEvent(t, state, qWeights):
+def massEvent(t, state, qWeights, rWeights):
     satelliteMass = 500 
     if state[6] < satelliteMass:
         return 0
