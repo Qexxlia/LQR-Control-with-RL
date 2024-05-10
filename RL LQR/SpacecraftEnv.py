@@ -57,7 +57,7 @@ class SpacecraftEnv(gym.Env):
         
     def step(self, action):
         # Define action
-        qWeights = self.map_range(action, -1, 1, 1e-16, 1)
+        qWeights = self.map_range(action, -1, 1, 1e-16, 1e16)
         
         timeRange = (self.currentTime, self.currentTime + self.tStep)
      
