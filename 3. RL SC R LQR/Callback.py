@@ -22,9 +22,9 @@ class PlotCallback(BaseCallback):
             
         [action, _state] = self.model.predict(obs, deterministic=True)
 
-        self.logger.record("action/r1", vec_env.env_method("map_range", action[0,0], -1, 1, 0, 1)[0], exclude=("stdout", "log", "json", "csv"))
-        self.logger.record("action/r2", vec_env.env_method("map_range", action[0,1], -1, 1, 0, 1)[0], exclude=("stdout", "log", "json", "csv"))
-        self.logger.record("action/r3", vec_env.env_method("map_range", action[0,2], -1, 1, 0, 1)[0], exclude=("stdout", "log", "json", "csv"))
+        self.logger.record("action/r1", vec_env.env_method("map_range", action[0,0], -1, 1, 1e-8, 1)[0], exclude=("stdout", "log", "json", "csv"))
+        self.logger.record("action/r2", vec_env.env_method("map_range", action[0,1], -1, 1, 1e-8, 1)[0], exclude=("stdout", "log", "json", "csv"))
+        self.logger.record("action/r3", vec_env.env_method("map_range", action[0,2], -1, 1, 1e-8, 1)[0], exclude=("stdout", "log", "json", "csv"))
        
         done = False
         while not done:

@@ -29,7 +29,7 @@ class SpacecraftEnv(gym.Env):
         self.action_space = gym.spaces.Box(
             low = -actionLimits,
             high = actionLimits,
-            dtype = np.float32
+            dtype = np.float64
         )
         
         # Define the observation space
@@ -59,6 +59,7 @@ class SpacecraftEnv(gym.Env):
         # Define action
         qWeights = np.ones(6)
         rWeights = self.map_range(action, -1, 1, 1e-8, 1)
+        print(rWeights)
         
         timeRange = (self.currentTime, self.currentTime + self.tStep)
      
@@ -99,6 +100,8 @@ class SpacecraftEnv(gym.Env):
         self.pos = np.hstack((np.atleast_2d(self.pos), sol.y[0:3, :]))
         self.vel = np.hstack((np.atleast_2d(self.vel), sol.y[3:6, :]))
         self.t = np.hstack((self.t, sol.t))
+
+        print(self.state[6])
        
         normalisedState = self.normalise_state(self.state)
 
