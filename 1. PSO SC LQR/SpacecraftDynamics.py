@@ -80,8 +80,6 @@ def calculateControl(state, A, B, Q, R):
     Isp = 1000
     dMass = -np.linalg.norm(u)*(state[6]/(Isp*(9.81E-3)))
     
-    print(state[6])
-        
     return u, dMass
 
 
@@ -127,7 +125,7 @@ convergeEvent.terminal = True
 convergeEvent.direction = 0
 
 def massEvent(t, state, qWeights, rWeights):
-    satelliteMass = 600 
+    satelliteMass = 825
     if state[6] < satelliteMass:
         return 0
     return 1
