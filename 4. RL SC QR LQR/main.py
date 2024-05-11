@@ -21,8 +21,8 @@ obs = env.reset()
 timeStr = time.strftime("%Y%m%d-%H%M")
 
 learning_rate = 3e-4
-n_steps = 10 # 1024 seems to be the best balance
-batch_size = 64
+n_steps = 1024 # 1024 seems to be the best balance
+batch_size = 64 
 n_epochs = 10
 clip_range = 0.2
 gamma = 0.99
@@ -37,7 +37,7 @@ log_std_init = np.log(1)
 device = 'cpu' #cpu or cuda
 
 ## NUM EPISODES
-num_episodes = 200
+num_episodes = 400
 num_time_steps = num_episodes * n_steps
 
 
@@ -49,7 +49,7 @@ else:
 
 print("Saving to: " + nameStr + "\n")
 
-eval_callback = EvalCallback(env, best_model_save_path=nameStr + "/best_model/", log_path=nameStr + "/evaluations/", eval_freq=200, deterministic=True, render=False, verbose=0)
+eval_callback = EvalCallback(env, best_model_save_path=nameStr + "/best_model/", log_path=nameStr + "/evaluations/", eval_freq=n_steps/4, deterministic=True, render=False, verbose=0)
 plot_callback = PlotCallback(verbose=0, csv_save_path=nameStr + "/data/")
 
 callbacks = CallbackList([eval_callback, plot_callback])
