@@ -16,7 +16,7 @@ X = [
 ]
 '''
 
-def printAMatrice(a, mu):
+def calcAMatrix(a, mu):
     n = np.sqrt(mu/a**3)
 
     A = np.array(
@@ -30,20 +30,21 @@ def printAMatrice(a, mu):
         ], dtype=np.float32
     )
     
-    print(A)
+    return A
 
 def matrices(qWeights, rWeights):
     # Get matrices
 
     # Constants
-    A = np.array([
-        [ 0.000000e+00,  0.000000e+00,  0.000000e+00,  1.000000e+00,  0.000000e+00, 0.000000e+00],
-        [ 0.000000e+00,  0.000000e+00,  0.000000e+00,  0.000000e+00,  1.000000e+00, 0.000000e+00],
-        [ 0.000000e+00,  0.000000e+00,  0.000000e+00,  0.000000e+00,  0.000000e+00, 1.000000e+00],
-        [ 2.834492e-06,  0.000000e+00,  0.000000e+00,  0.000000e+00,  1.944048e-03, 0.000000e+00],
-        [ 0.000000e+00,  0.000000e+00,  0.000000e+00, -1.944048e-03,  0.000000e+00, 0.000000e+00],
-        [ 0.000000e+00,  0.000000e+00, -9.448307e-07,  0.000000e+00,  0.000000e+00, 0.000000e+00],
-    ])
+    # A = np.array([
+    #     [0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  1.0000000e+00,  0.0000000e+00,  0.0000000e+00],
+    #     [0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  1.0000000e+00,  0.0000000e+00],
+    #     [0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  1.0000000e+00],
+    #     [3.6863682e-06,  0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  2.2170155e-03,  0.0000000e+00],
+    #     [0.0000000e+00,  0.0000000e+00,  0.0000000e+00, -2.2170155e-03,  0.0000000e+00,  0.0000000e+00],
+    #     [0.0000000e+00,  0.0000000e+00, -1.2287894e-06,  0.0000000e+00,  0.0000000e+00,  0.0000000e+00],
+    #     ], dtype=np.float32
+    # )
 
     B = np.array(
         [
@@ -60,7 +61,7 @@ def matrices(qWeights, rWeights):
 
     R = np.diag(rWeights)
 
-    return A, B, Q, R
+    return B, Q, R
 
 def calculateControl(state, A, B, Q, R):
 
@@ -77,39 +78,40 @@ def calculateControl(state, A, B, Q, R):
         u = (u / normU)*u_max
         
     # Calculate mass change
-    Isp = 1000
-    dMass = -np.linalg.norm(u)*(state[6]/(Isp*(9.81E-3)))
+    Isp = 1000 #3300
+    dMass = -np.linalg.norm(u)*(state[6]/(Isp*(9.80665E-3)))
     
     return u, dMass
 
 
-def nextState(t, state, qWeights, rWeights):
+def nextState(t, state, qWeights, rWeights, A):
     # Get control
-    [A, B, Q, R] = matrices(qWeights, rWeights)
+    [B, Q, R] = matrices(qWeights, rWeights)
     [u, dMass] = calculateControl(state, A, B, Q, R)
 
     # Calculate change
     dState = np.append((A @ state[0:6]) + (B @ u), dMass)
-    
     return dState
 
-def simulate(state, timeRange, qWeights, rWeights):
+def simulate(state, timeRange, qWeights, rWeights, A):
     
     sol = integrate.solve_ivp(
         nextState,
         timeRange,
         state,
         # max_step = 0.25,
-        args=(qWeights, rWeights),
+        args=(qWeights, rWeights, A),
         events=(convergeEvent, massEvent),
+        atol=1e-6,
+        rtol=1e-3
     )
 
     return sol
 
-def convergeEvent(t, state, qWeights, rWeights):
+def convergeEvent(t, state, qWeights, rWeights, A):
     posTol = 1e-3
     velTol = 1e-6
-    
+
     tol = np.array([posTol, posTol, posTol, velTol, velTol, velTol])
 
     exit = 0
@@ -124,8 +126,8 @@ def convergeEvent(t, state, qWeights, rWeights):
 convergeEvent.terminal = True
 convergeEvent.direction = 0
 
-def massEvent(t, state, qWeights, rWeights):
-    satelliteMass = 825
+def massEvent(t, state, qWeights, rWeights, A):
+    satelliteMass = 825 #15 
     if state[6] < satelliteMass:
         return 0
     return 1

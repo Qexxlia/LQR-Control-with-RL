@@ -6,19 +6,28 @@ import numpy as np
 
 from SpacecraftEnv import SpacecraftEnv as spe
 from Callback import PlotCallback
+import SpacecraftDynamics as scd
 
-###### TESTING FLAG ######
+
+np.set_printoptions(linewidth=np.inf)
+# sol = scd.simulate([0.5, -0.5, 0, 1e-3, -1e-3, 0, 30], (0, 50), np.ones(6), np.ones(3))
+# print(sol.y[:,-1])
+# print(sol.t[-1])
+# scd.printAMatrice(6371 + 500, 3.986e5)
+# time.sleep(100)
+
+#-------------------- SETUP --------------------
 Testing = True
 
 if input("Run as a test? (Y/n) : ") == 'n':
     Testing = False
 
-# scd.printAMatrice(7500, 3.986004418E5)
-
 env = spe()
 obs = env.reset()
 
 timeStr = time.strftime("%Y%m%d-%H%M")
+
+#-------------------- HYPERPARAMETERS --------------------
 
 learning_rate = 3e-4
 n_steps = 1024 # 1024 seems to be the best balance
@@ -34,18 +43,24 @@ max_grad_norm = 0.5
 
 log_std_init = np.log(1)
 
-device = 'cpu' #cpu or cuda
+#-------------------- TO CHANGE --------------------
+device = 'cuda' #cpu or cuda
 
-## NUM EPISODES
-num_episodes = 200
+# NUM EPISODES
+num_episodes = 50 
+
+# TEST TYPE
+testtype = "state_variance"
+
+additional_info = "__var-scale=5e-2_5e-5"
+
+#-------------------- TRAINING --------------------
 num_time_steps = num_episodes * n_steps
-
-
 if Testing:
-    nameStr = "./models/testing/spacecraft/" + "PPO_" + timeStr + "__LR=" + str(learning_rate) + "__NS=" + str(n_steps) + "__BS=" + str(batch_size) + "__NE=" + str(n_epochs) + "__CR=" + str(clip_range) + "__G=" + str(gamma) + "__LSI=" + str(log_std_init)
+    nameStr = "./models/testing/spacecraft/" + "PPO_" + timeStr + "__LR=" + str(learning_rate) + "__NS=" + str(n_steps) + "__BS=" + str(batch_size) + "__NE=" + str(n_epochs) + "__CR=" + str(clip_range) + "__G=" + str(gamma) + "__LSI=" + str(log_std_init) + additional_info
     print("TESTING MODE")
 else:
-    nameStr = "./models/spacecraft/batch_size/" + "PPO_" + timeStr + "__LR=" + str(learning_rate) + "__NS=" + str(n_steps) + "__BS=" + str(batch_size) + "__NE=" + str(n_epochs) + "__CR=" + str(clip_range) + "__G=" + str(gamma) + "__LSI=" + str(log_std_init)
+    nameStr = "./models/spacecraft/" + testtype + "/PPO_" + timeStr + "__LR=" + str(learning_rate) + "__NS=" + str(n_steps) + "__BS=" + str(batch_size) + "__NE=" + str(n_epochs) + "__CR=" + str(clip_range) + "__G=" + str(gamma) + "__LSI=" + str(log_std_init) + additional_info
 
 print("Saving to: " + nameStr + "\n")
 

@@ -21,6 +21,8 @@ class SpacecraftEnv(gym.Env):
             1000,   # mass 
         ], dtype=np.float32)
         
+        self.A = scd.calcAMatrix(6371 + 500, 3.986e5)
+        
         self.maxPos = 1
         self.maxVel = 0.5
 
@@ -41,7 +43,7 @@ class SpacecraftEnv(gym.Env):
         )
 
         # Define timeframe
-        self.tStep = 10
+        self.tStep = 5 
         self.currentTime = 0
         self.t0 = 0
         
@@ -55,15 +57,17 @@ class SpacecraftEnv(gym.Env):
         self.pos = np.atleast_2d(self.initialState[0:3]).T
         self.vel = np.atleast_2d(self.initialState[3:6]).T
         
+        np.random.seed(0)
+        
     def step(self, action):
         # Define action
-        qWeights = self.map_range(action[0:6], -1, 1, 1e-16, 1)
+        qWeights = self.map_range(action[0:6], -1, 1, 1e-8, 1)
         rWeights = self.map_range(action[6:9], -1, 1, 1e-8, 1)
         
         timeRange = (self.currentTime, self.currentTime + self.tStep)
      
         # Simulate dynamics
-        sol = scd.simulate(self.state, timeRange, qWeights, rWeights)
+        sol = scd.simulate(self.state, timeRange, qWeights, rWeights, self.A)
         
         self.numUpdates += 1
         self.currentTime = sol.t[-1]
@@ -82,16 +86,22 @@ class SpacecraftEnv(gym.Env):
         elif sol.t_events[1].size != 0:
             noDeltaV = True
             truncated = True
+        if self.currentTime >= 50:
+            truncated = True
         
         # Calculate reward
         reward = 0
+        timePunishment = self.currentTime - self.t0
+        deltaVPunishment = self.dVT
+        distancePunishment = np.linalg.norm(sol.y[0:3, -1])
+        truncatedPunishment = 0
 
         if noDeltaV:
-            reward = -5000
-        elif converged:
-            timePunishment = self.currentTime - self.t0
-            deltaVPunishment = self.dVT
-            reward = - timePunishment - deltaVPunishment
+            deltaVPunishment = 250
+        if truncated:
+            truncatedPunishment = 250
+        
+        reward = - timePunishment - deltaVPunishment - distancePunishment - truncatedPunishment
             
         # Update state
         self.state = sol.y[:,-1]
@@ -107,7 +117,9 @@ class SpacecraftEnv(gym.Env):
     
     def reset(self, *, seed = None, options = None):
         # Reset state
-        self.state = self.initialState
+        r = np.append(np.append(np.random.normal(0, 5e-2, 3), np.random.normal(0, 5e-5, 3)), 0)
+
+        self.state = self.initialState + r
 
         self.dVT = 0
 

@@ -61,9 +61,13 @@ class SpacecraftEnv(gym.Env):
         rWeights = self.map_range(action, -1, 1, 1e-8, 1)
         
         timeRange = (self.currentTime, self.currentTime + self.tStep)
+        
+        print(timeRange)
      
         # Simulate dynamics
         sol = scd.simulate(self.state, timeRange, qWeights, rWeights)
+        
+        print("here")
         
         self.numUpdates += 1
         self.currentTime = sol.t[-1]

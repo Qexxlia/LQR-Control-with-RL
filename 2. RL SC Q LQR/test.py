@@ -1,10 +1,19 @@
 import numpy as np
 
-b = np.array([1,2,3], dtype=np.float32)
+initialState = np.array([
+    0.5,    # x
+    -0.5,    # y
+    0.5,    # z
+    1e-3,   # x_dot
+    -1e-3,   # y_dot
+    1e-3,   # z_dot
+    30   # mass 
+], dtype=np.float32)
 
-from SpacecraftEnv import SpacecraftEnv as spe
+r = np.append(np.append(np.random.normal(0, 5e-2, 3), np.random.normal(0, 5e-5, 3)),0)
+              
 
-SpacecraftEnv = spe()
-a = spe.map_range(spe, b, 0, 10, 10, 20)
+state = initialState + r
 
-print(a)
+print(state)
+print(state/initialState)
