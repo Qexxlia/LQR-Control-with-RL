@@ -1,30 +1,36 @@
 import gymnasium as gym
 import numpy as np
 import pandas as pd
+import math
 
 import SpacecraftDynamics as scd
 
 class SpacecraftEnv(gym.Env):
     
-    def __init__(self, render_mode = "none"):
+    def __init__(self, verbose, tStep, variance_percentage, maxDuration, map_limits, u_max):
         # Copy parameters
-        self.render_mode = render_mode
+        self.tStep = tStep
+        self.variance_percentage = variance_percentage
+        self.maxDuration = maxDuration
+        self.map_limits = map_limits
+        self.u_max = u_max
+        self.verbose = verbose
 
         # Define the inital state
         self.initialState = np.array([
-            1,    # x
-            1,    # y
-            1,    # z
-            1e-4,   # x_dot
-            1e-4,   # y_dot
-            1e-4,   # z_dot
-            1000,   # mass 
+            0.5,    # x
+            -0.5,    # y
+            0,    # z
+            1e-3,   # x_dot
+            -1e-3,   # y_dot
+            0,   # z_dot
+            30,   # mass 
         ], dtype=np.float32)
-        
+
         self.A = scd.calcAMatrix(6371 + 500, 3.986e5)
         
-        self.maxPos = 1
-        self.maxVel = 0.5
+        self.maxPos = max(abs(self.initialState[0:3])) 
+        self.maxVel = self.maxPos/10
 
         # Define the action space
         actionLimits = np.ones(9, dtype=np.float32)
@@ -37,13 +43,12 @@ class SpacecraftEnv(gym.Env):
         # Define the observation space
         observationLimits = np.ones(7, dtype=np.float32)
         self.observation_space = gym.spaces.Box(
-            low = -observationLimits,
+            low = 0*observationLimits,
             high = observationLimits,
             dtype = np.float32
         )
 
         # Define timeframe
-        self.tStep = 5 
         self.currentTime = 0
         self.t0 = 0
         
@@ -61,13 +66,18 @@ class SpacecraftEnv(gym.Env):
         
     def step(self, action):
         # Define action
-        qWeights = self.map_range(action[0:6], -1, 1, 1e-8, 1)
-        rWeights = self.map_range(action[6:9], -1, 1, 1e-8, 1)
+        qWeights = self.map_range(action[0:6], -1, 1, self.map_limits[0,0:6], self.map_limits[1,0:6])
+        rWeights = self.map_range(action[6:9], -1, 1, self.map_limits[0,6:9], self.map_limits[1,6:9])
+        if(self.verbose == 1):
+            with np.printoptions(precision=3, suppress=False, linewidth=140):
+                print("Action:", action)
+                print("Q:", qWeights)
+                print("R:", rWeights)
         
         timeRange = (self.currentTime, self.currentTime + self.tStep)
      
         # Simulate dynamics
-        sol = scd.simulate(self.state, timeRange, qWeights, rWeights, self.A)
+        sol = scd.simulate(self.state, timeRange, qWeights, rWeights, self.A, self.u_max)
         
         self.numUpdates += 1
         self.currentTime = sol.t[-1]
@@ -86,7 +96,7 @@ class SpacecraftEnv(gym.Env):
         elif sol.t_events[1].size != 0:
             noDeltaV = True
             truncated = True
-        if self.currentTime >= 50:
+        if self.currentTime >= self.maxDuration:
             truncated = True
         
         # Calculate reward
@@ -94,6 +104,7 @@ class SpacecraftEnv(gym.Env):
         timePunishment = self.currentTime - self.t0
         deltaVPunishment = self.dVT
         distancePunishment = np.linalg.norm(sol.y[0:3, -1])
+        velocityPunishment = np.linalg.norm(sol.y[3:6, -1])
         truncatedPunishment = 0
 
         if noDeltaV:
@@ -101,7 +112,7 @@ class SpacecraftEnv(gym.Env):
         if truncated:
             truncatedPunishment = 250
         
-        reward = - timePunishment - deltaVPunishment - distancePunishment - truncatedPunishment
+        reward = - timePunishment - deltaVPunishment - distancePunishment - velocityPunishment - truncatedPunishment
             
         # Update state
         self.state = sol.y[:,-1]
@@ -117,9 +128,11 @@ class SpacecraftEnv(gym.Env):
     
     def reset(self, *, seed = None, options = None):
         # Reset state
-        r = np.append(np.append(np.random.normal(0, 5e-2, 3), np.random.normal(0, 5e-5, 3)), 0)
-
-        self.state = self.initialState + r
+        # self.var_state()
+        self.range_state()
+        if(self.verbose == 1):
+            with np.printoptions(precision=3, suppress=False, linewidth=140):
+                print("State: ", self.state)
 
         self.dVT = 0
 
@@ -146,9 +159,33 @@ class SpacecraftEnv(gym.Env):
         normalisedState[5] = state[5]/self.maxVel
         normalisedState[6] = state[6]/self.initialState[6]
         
-        return normalisedState
+        return abs(normalisedState)
 
 
     def map_range(self, val, in_min, in_max, out_min, out_max):
         # Map a value from one range to another
         return (val - in_min)/(in_max - in_min)*(out_max - out_min) + out_min
+    
+    def var_state(self):
+        r = np.append(np.random.normal(-self.variance_percentage, self.variance_percentage, 6), 0)
+        self.state = self.initialState*(1+r)
+    
+    def range_state(self):
+        r = math.sqrt(self.initialState[0]**2 + self.initialState[1]**2 + self.initialState[2]**2)
+        theta = np.random.uniform(0, np.pi/2)
+        phi = np.random.uniform(0, np.pi/2)
+
+        v = math.sqrt(self.initialState[3]**2 + self.initialState[4]**2 + self.initialState[5]**2)
+        gamma = np.random.uniform(0, np.pi/2)
+        alpha = np.random.uniform(0, np.pi/2)
+
+        self.state = np.array([0, 0, 0, 0, 0, 0, self.initialState[6]], dtype=np.float32)
+        self.state[0] = r * math.sin(theta) * math.cos(phi)
+        self.state[1] = r * math.sin(theta) * math.sin(phi)
+        self.state[2] = r * math.cos(theta)
+
+        self.state[3] = v * math.sin(gamma) * math.cos(alpha)
+        self.state[4] = v * math.sin(gamma) * math.sin(alpha)
+        self.state[5] = v * math.cos(gamma)
+        
+

@@ -2,35 +2,17 @@ import time
 from stable_baselines3 import PPO 
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.callbacks import CallbackList
+from stable_baselines3.common.monitor import Monitor
 import numpy as np
 
 from SpacecraftEnv import SpacecraftEnv as spe
-from Callback import PlotCallback
-import SpacecraftDynamics as scd
+from Callbacks import StateCallback
+from Callbacks import HParamCallback
 
-
-np.set_printoptions(linewidth=np.inf)
-# sol = scd.simulate([0.5, -0.5, 0, 1e-3, -1e-3, 0, 30], (0, 50), np.ones(6), np.ones(3))
-# print(sol.y[:,-1])
-# print(sol.t[-1])
-# scd.printAMatrice(6371 + 500, 3.986e5)
-# time.sleep(100)
-
-#-------------------- SETUP --------------------
-Testing = True
-
-if input("Run as a test? (Y/n) : ") == 'n':
-    Testing = False
-
-env = spe()
-obs = env.reset()
-
-timeStr = time.strftime("%Y%m%d-%H%M")
-
-#-------------------- HYPERPARAMETERS --------------------
-
-learning_rate = 3e-4
-n_steps = 1024 # 1024 seems to be the best balance
+#-------------------- PARAMETERS --------------------
+# Hyperparameters
+learning_rate = 3e-3
+n_steps = 1024
 batch_size = 64
 n_epochs = 10
 clip_range = 0.2
@@ -43,32 +25,60 @@ max_grad_norm = 0.5
 
 log_std_init = np.log(1)
 
-#-------------------- TO CHANGE --------------------
-device = 'cpu' #cpu or cuda
+# Environment Parameters
+variance_percentage = 0.00
+max_duration = 10000
+map_limits = np.array(
+    [
+        [1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0],
+        [1e5, 1e5, 1e5, 1e5, 1e5, 1e5, 1e5, 1e5, 1e5]
+    ],
+    dtype=np.float32
+)
+tStep = 5
+u_max = 1e-3
+verbose = 0
+
+device = 'cuda' #cpu or cuda
 
 # NUM EPISODES
-num_episodes = 50 
+num_episodes = 500
 
 # TEST TYPE
-testtype = "state_variance"
+testtype = "var"
+additional_info = "__u_max=" + str(u_max) +"__range"
 
-additional_info = "__var-scale=5e-2_5e-5"
+#-------------------- INITIALISE MODEL & RUN TRAINING --------------------
 
-#-------------------- TRAINING --------------------
-num_time_steps = num_episodes * n_steps
+if(input("Run as test? [Y/n]: ") != "n"):
+    Testing = True
+else:
+    Testing = False
+
+timeStr = time.strftime("%Y%m%d-%H%M")
+
+# Constant calculations/definitions
 if Testing:
-    nameStr = "./models/testing/spacecraft/" + "PPO_" + timeStr + "__LR=" + str(learning_rate) + "__NS=" + str(n_steps) + "__BS=" + str(batch_size) + "__NE=" + str(n_epochs) + "__CR=" + str(clip_range) + "__G=" + str(gamma) + "__LSI=" + str(log_std_init) + additional_info
+    nameStr = "./models/testing/spacecraft/" + "PPO_" + timeStr + additional_info
     print("TESTING MODE")
 else:
-    nameStr = "./models/spacecraft/" + testtype + "/PPO_" + timeStr + "__LR=" + str(learning_rate) + "__NS=" + str(n_steps) + "__BS=" + str(batch_size) + "__NE=" + str(n_epochs) + "__CR=" + str(clip_range) + "__G=" + str(gamma) + "__LSI=" + str(log_std_init) + additional_info
+    nameStr = "./models/spacecraft/" + testtype + "/PPO_" + timeStr + additional_info
+print("Saving to: " + nameStr)
 
-print("Saving to: " + nameStr + "\n")
+num_time_steps = num_episodes * n_steps
 
-eval_callback = EvalCallback(env, best_model_save_path=nameStr + "/best_model/", log_path=nameStr + "/evaluations/", eval_freq=200, deterministic=True, render=False, verbose=0)
-plot_callback = PlotCallback(verbose=0, csv_save_path=nameStr + "/data/")
+# Create environment
+env = spe(verbose=verbose, variance_percentage=variance_percentage, maxDuration=max_duration, map_limits=map_limits, tStep=tStep, u_max=u_max)
+env = Monitor(env)
+obs = env.reset()
 
-callbacks = CallbackList([eval_callback, plot_callback])
+# Define Callbacks
+eval_callback = EvalCallback(env, best_model_save_path=nameStr + "/best_model/", log_path=nameStr + "/evaluations/", eval_freq=25*n_steps, deterministic=True, render=False, verbose=0)
+state_callback = StateCallback(csv_save_path=nameStr + "/data/", map_limits=map_limits, max_duration=max_duration)
+hparam_callback = HParamCallback()
+callbacks = CallbackList([state_callback, hparam_callback, eval_callback])
 
+# Define PPO Parameters
 policy_kwargs = {
     'share_features_extractor' : False,
     'log_std_init' : log_std_init,
@@ -92,12 +102,5 @@ model = PPO(
     policy_kwargs=policy_kwargs
 )
 
-# model = A2C.load("./models/Spacecraft/A2C/20240507-164406 - SI/best_model/best_model.zip", env=env, tensorboard_log="./models/Spacecraft/A2C/logs/", verbose = 1)
-
+# Start learning
 model.learn(total_timesteps=num_time_steps, progress_bar=True, callback=callbacks)
-
-# vec_env = model.get_env()
-# obs = vec_env.reset()
-
-# model.predict(obs, deterministic=True)
-# obs = env.step(model.predict(obs, deterministic=True)[0])

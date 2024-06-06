@@ -16,6 +16,7 @@ X = [
 ]
 '''
 
+## CALCULATIONS
 def calcAMatrix(a, mu):
     n = np.sqrt(mu/a**3)
 
@@ -33,19 +34,6 @@ def calcAMatrix(a, mu):
     return A
 
 def matrices(qWeights, rWeights):
-    # Get matrices
-
-    # Constants
-    # A = np.array([
-    #     [0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  1.0000000e+00,  0.0000000e+00,  0.0000000e+00],
-    #     [0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  1.0000000e+00,  0.0000000e+00],
-    #     [0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  1.0000000e+00],
-    #     [3.6863682e-06,  0.0000000e+00,  0.0000000e+00,  0.0000000e+00,  2.2170155e-03,  0.0000000e+00],
-    #     [0.0000000e+00,  0.0000000e+00,  0.0000000e+00, -2.2170155e-03,  0.0000000e+00,  0.0000000e+00],
-    #     [0.0000000e+00,  0.0000000e+00, -1.2287894e-06,  0.0000000e+00,  0.0000000e+00,  0.0000000e+00],
-    #     ], dtype=np.float32
-    # )
-
     B = np.array(
         [
             [0, 0, 0],
@@ -63,8 +51,7 @@ def matrices(qWeights, rWeights):
 
     return B, Q, R
 
-def calculateControl(state, A, B, Q, R):
-
+def calculateControl(state, u_max, A, B, Q, R):
     # Solve LQR for K using control library
     [K, S, E] = ctrl.lqr(A, B, Q, R, method='scipy')
 
@@ -72,35 +59,37 @@ def calculateControl(state, A, B, Q, R):
     u = -K @ state[0:6]
 
     # Cap control
-    u_max = 5e200 # CANNOT BE BELOW 4.1e-6
+    u_max = u_max # CANNOT BE BELOW 4.1e-6
     normU = np.linalg.norm(u)
     if(normU > u_max):
         u = (u / normU)*u_max
         
     # Calculate mass change
-    Isp = 1000 #3300
+    Isp = 3300
     dMass = -np.linalg.norm(u)*(state[6]/(Isp*(9.80665E-3)))
     
     return u, dMass
 
-
-def nextState(t, state, qWeights, rWeights, A):
+def nextState(t, state, qWeights, rWeights, A, u_max):
     # Get control
     [B, Q, R] = matrices(qWeights, rWeights)
-    [u, dMass] = calculateControl(state, A, B, Q, R)
+    [u, dMass] = calculateControl(state, u_max, A, B, Q, R)
 
     # Calculate change
     dState = np.append((A @ state[0:6]) + (B @ u), dMass)
     return dState
 
-def simulate(state, timeRange, qWeights, rWeights, A):
-    
+
+
+
+## SIMULATION INTEGRATION
+def simulate(state, timeRange, qWeights, rWeights, A, u_max):
     sol = integrate.solve_ivp(
         nextState,
         timeRange,
         state,
         # max_step = 0.25,
-        args=(qWeights, rWeights, A),
+        args=(qWeights, rWeights, A, u_max),
         events=(convergeEvent, massEvent),
         atol=1e-6,
         rtol=1e-3
@@ -108,7 +97,10 @@ def simulate(state, timeRange, qWeights, rWeights, A):
 
     return sol
 
-def convergeEvent(t, state, qWeights, rWeights, A):
+
+
+## EVENTS
+def convergeEvent(t, state, qWeights, rWeights, A, u_max):
     posTol = 1e-3
     velTol = 1e-6
 
@@ -126,14 +118,18 @@ def convergeEvent(t, state, qWeights, rWeights, A):
 convergeEvent.terminal = True
 convergeEvent.direction = 0
 
-def massEvent(t, state, qWeights, rWeights, A):
-    satelliteMass = 825 #15 
+def massEvent(t, state, qWeights, rWeights, A, u_max):
+    satelliteMass = 15 
     if state[6] < satelliteMass:
         return 0
     return 1
 massEvent.terminal = True
 massEvent.direction = 0 
 
+
+
+
+## PLOTTING
 def plot1(pos, vel, t):
     # Colors
     xc = 'red'
@@ -157,8 +153,6 @@ def plot1(pos, vel, t):
 
     ax[0].set_title('Position vs Time', fontsize=tsL)
     ax[0].set_ylabel('Position (km)', fontsize=tsS)
-    ax[0].set_ylim(-0.5, 1.25)
-    ax[0].set_xlim(0, 70)
 
     ax[1].plot(t, vel[0, :], color=xc, linewidth=lw)
     ax[1].plot(t, vel[1, :], color=yc, linewidth=lw)
@@ -166,8 +160,6 @@ def plot1(pos, vel, t):
 
     ax[1].set_title('Velocity vs Time', fontsize=tsL)
     ax[1].set_ylabel('Velocity (km/s)', fontsize=tsS)
-    ax[1].set_ylim(-0.5, 0.25)
-    ax[1].set_xlim(0, 70)
 
     fig.legend(loc='upper right')
     
@@ -224,4 +216,6 @@ def plot3d(sol):
     ax3d.plot(sol.y[0, :], sol.y[1, :], sol.y[2, :], linewidth=lw, color=c)
     ax3d.set_xlabel('X', fontsize=tsS)
     ax3d.set_ylabel('Y', fontsize=tsS)
-    ax3d.set_zlabel('Z
+    ax3d.set_zlabel('Z', fontsize=tsS)
+    plt.title('Position', fontsize=tsL)
+    plt.show()
