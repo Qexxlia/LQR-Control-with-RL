@@ -1,19 +1,11 @@
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import SpacecraftDynamics as scd
+import control
 
-fig = plt.figure()
-ax = fig.add_subplot(projection='3d')
+a = np.array([1, 2, 3])
 
-for i in range(1000):
-    r = math.sqrt(2)
-    theta = np.random.uniform(0, np.pi/2)
-    phi = np.random.uniform(0, np.pi/2)
+b = np.vstack((a,a,a))
 
-    x = r * math.sin(theta) * math.cos(phi)
-    y = r * math.sin(theta) * math.sin(phi)
-    z = r * math.cos(theta)
-
-    ax.scatter(x,y,z)
-
-plt.show()
+print(b)

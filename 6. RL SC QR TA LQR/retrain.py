@@ -35,20 +35,20 @@ map_limits = np.array(
     ],
     dtype=np.float32
 )
-tStep = 5
-u_max = 1e-4
+t_step_limits = np.array([1e-6, 50], dtype=np.float32)
+u_max = 1e-3
 verbose = 0
 
 device = 'cpu' #cpu or cuda
 
 # NUM EPISODES
-num_episodes = 250 
+num_episodes = 750 
 
 # TEST TYPE
 testtype = "u_max"
-additional_info = "__u_max=" + str(u_max)
+additional_info = "__u_max=" + str(u_max) + "__range"
 
-timeStr = "20240605-1235"
+timeStr = "20240607-1141"
 
 nameStr = "./models/spacecraft/" + testtype + "/PPO_" + timeStr + additional_info
 
