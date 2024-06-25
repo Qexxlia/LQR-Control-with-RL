@@ -115,7 +115,7 @@ def convergeEvent(t, state, q_weights, r_weights, A, u_max, satellite_mass):
     tol = np.array([pos_tol, pos_tol, pos_tol, vel_tol, vel_tol, vel_tol])
 
     exit = 0
-    for i in range(5):
+    for i in range(6):
         if abs(state[i]) > tol[i]:
             exit += 1
 

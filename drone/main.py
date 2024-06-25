@@ -12,7 +12,8 @@ import os
 import tkinter
 from tkinter import filedialog
 
-from spacecraft_env import SpacecraftEnv as spe
+from drone_env import DroneEnv as de
+from drone_pso import DronePSO as dpso
 from callbacks import StateCallback
 from callbacks import HParamCallback
 from callbacks import TextDataCallback
@@ -47,22 +48,22 @@ env_params = {
     "max_duration" : 750,
     "map_limits" : np.array(
         [
-            [1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0],
-            [1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3]
+            [1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0],
+            [1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3]
         ],
         dtype=np.float32
     ),
     "t_step_limits" : np.array([1, 100], dtype=np.float32),
-    "u_max" : 1e-4,
+    "u_max" : 1e-0,
     "simulation_type" : "qrt",
-    "t_step" : 0,
+    "t_step" : 5,
     "seed" : seed,
-    "absolute_norm" : True
+    "absolute_norm" : False
 }
 
 u_max_callback_args = {
     "u_max_initial" : env_params["u_max"],
-    "u_max_final" : 1e-4,
+    "u_max_final" : 1e0,
     "step_gap" : 1024*100,
     "total_timesteps" : num_time_steps,
 }
@@ -72,17 +73,26 @@ device = 'cpu' #cpu or cuda
 
 
 # TEST TYPE
-testtype = "reward"
+testtype = ""
 additional_info = ""
 
 #-------------------- INITIALISE MODEL & RUN TRAINING --------------------
 
 timeStr = time.strftime("%Y%m%d-%H%M")
-if(input("Run as test? [Y/n]: ") != "n"):
-    name_string = "./models/testing/spacecraft/" + "PPO_" + timeStr + additional_info
+a = input("Run as test? [Y/n]: ")
+if(a == "pso"):
+    print("PSO")
+    pso = dpso(env_params, verbose)
+    cost, pos = pso.optimize()
+    print("PSO Complete")
+    print(cost)
+    print(pos)
+    exit()
+elif(a != "n"):
+    name_string = "./models/testing/drone/" + "PPO_" + timeStr + additional_info
     print("TESTING")
 else:
-    name_string = "./models/spacecraft/" + testtype + "/PPO_" + timeStr + additional_info
+    name_string = "./models/drone/" + testtype + "/PPO_" + timeStr + additional_info
     i = 1
     while os.path.exists(name_string):
         name_string = name_string + "_" + str(i)
@@ -97,7 +107,7 @@ else:
 print("Path: " + name_string)
 
 # Create environment
-env = spe(verbose=verbose, args=env_params)
+env = de(verbose=verbose, args=env_params)
 env = Monitor(env)
 obs = env.reset()
 

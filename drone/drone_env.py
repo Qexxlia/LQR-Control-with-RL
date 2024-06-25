@@ -3,9 +3,9 @@ import numpy as np
 import pandas as pd
 import math
 
-import spacecraft_dynamics as scd
+import drone_dynamics as dd
 
-class SpacecraftEnv(gym.Env):
+class DroneEnv(gym.Env):
     
     def __init__(self, verbose, args = None):
         # Copy parameters
@@ -23,38 +23,43 @@ class SpacecraftEnv(gym.Env):
 
         # Define the initial state
         self.initial_state = np.array([
-            0.5,    # x
-            -0.5,    # y
-            0,    # z
-            1e-3,   # x_dot
-            -1e-3,   # y_dot
-            0,   # z_dot
-            30,   # mass 
+            1, # x
+            1, # y
+            0, # z
+            0, # roll
+            0, # pitch
+            0, # yaw
+            0, # x_dot
+            0, # y_dot
+            0, # z_dot
+            0, # roll_dot
+            0, # pitch_dot
+            0, # yaw_dot
         ], dtype=np.float32)
         
-        self.satellite_mass = 15
-
         # Calculate A matrix for the dynamics
-        self.A = scd.calcAMatrix(6371 + 500, 3.986e5)
+        (self.A, self.B) = dd.precalcMatrices(1, 0.11, 0.11, 0.04) # From F. Ahmed et al
         
         # Calculate the maximum position and velocity for normalisation
-        self.max_pos = max(abs(self.initial_state[0:3])) 
-        self.max_vel = self.max_pos/10
+        self.max_position = 1
+        self.max_attitude = np.pi/8
+        self.max_velocity = 0.5
+        self.max_spin = np.pi/16
 
         # Define the action space
         match self.simulation_type:
             case 'q':
-                action_limits = np.ones(6, dtype=np.float32)
+                action_limits = np.ones(12, dtype=np.float32)
             case 'qt':
-                action_limits = np.ones(7, dtype=np.float32)
+                action_limits = np.ones(13, dtype=np.float32)
             case 'r':
-                action_limits = np.ones(3, dtype=np.float32)
-            case 'rt':
                 action_limits = np.ones(4, dtype=np.float32)
+            case 'rt':
+                action_limits = np.ones(5, dtype=np.float32)
             case 'qr':
-                action_limits = np.ones(9, dtype=np.float32)
+                action_limits = np.ones(16, dtype=np.float32)
             case 'qrt':
-                action_limits = np.ones(10, dtype=np.float32)
+                action_limits = np.ones(17, dtype=np.float32)
             case _:
                 raise ValueError("Invalid simulation type")
 
@@ -71,7 +76,7 @@ class SpacecraftEnv(gym.Env):
             boolabs = -1
         
         # Define the observation space
-        observation_limits = np.ones(7, dtype=np.float32)
+        observation_limits = np.ones(12, dtype=np.float32)
         self.observation_space = gym.spaces.Box(
             low = boolabs*observation_limits,
             high = observation_limits,
@@ -86,8 +91,10 @@ class SpacecraftEnv(gym.Env):
         self.deltaV = 0
         
         # Tracking position
-        self.pos = np.atleast_2d(self.initial_state[0:3]).T
-        self.vel = np.atleast_2d(self.initial_state[3:6]).T
+        self.position = np.atleast_2d(self.initial_state[0:3]).T
+        self.attitude = np.atleast_2d(self.initial_state[3:6]).T
+        self.velocity = np.atleast_2d(self.initial_state[6:9]).T
+        self.spin = np.atleast_2d(self.initial_state[9:12]).T
         
         # Set the random seed
         np.random.seed(self.seed)
@@ -99,25 +106,25 @@ class SpacecraftEnv(gym.Env):
         # Define action
         match self.simulation_type:
             case('q'):
-                q_weights = self.map_range(action[0:6], -1, 1, self.map_limits[0,0:6], self.map_limits[1,0:6])
+                q_weights = self.map_range(action[0:12], -1, 1, self.map_limits[0,0:12], self.map_limits[1,0:12])
                 r_weights = np.ones(3, dtype=np.float32)
                 t_step = self.t_step
             case('qt'):
-                q_weights = self.map_range(action[0:6], -1, 1, self.map_limits[0,0:6], self.map_limits[1,0:6])
+                q_weights = self.map_range(action[0:12], -1, 1, self.map_limits[0,0:12], self.map_limits[1,0:12])
                 r_weights = np.ones(3, dtype=np.float32)
-                t_step = self.map_range(action[6], -1, 1, self.t_step_limits[0], self.t_step_limits[1])
+                t_step = self.map_range(action[12], -1, 1, self.t_step_limits[0], self.t_step_limits[1])
             case('r'):
                 q_weights = np.ones(6, dtype=np.float32)
-                r_weights = self.map_range(action[0:3], -1, 1, self.map_limits[0,6:9], self.map_limits[1,6:9])
+                r_weights = self.map_range(action[0:4], -1, 1, self.map_limits[0,12:16], self.map_limits[1,12:16])
                 t_step = self.map_range(action[4], -1, 1, self.t_step_limits[0], self.t_step_limits[1])
             case('qr'):
-                q_weights = self.map_range(action[0:6], -1, 1, self.map_limits[0,0:6], self.map_limits[1,0:6])
-                r_weights = self.map_range(action[6:9], -1, 1, self.map_limits[0,6:9], self.map_limits[1,6:9])
+                q_weights = self.map_range(action[0:12], -1, 1, self.map_limits[0,0:12], self.map_limits[1,0:12])
+                r_weights = self.map_range(action[12:16], -1, 1, self.map_limits[0,12:16], self.map_limits[1,12:16])
                 t_step = self.t_step
             case('qrt'):
-                q_weights = self.map_range(action[0:6], -1, 1, self.map_limits[0,0:6], self.map_limits[1,0:6])
-                r_weights = self.map_range(action[6:9], -1, 1, self.map_limits[0,6:9], self.map_limits[1,6:9])
-                t_step = self.map_range(action[9], -1, 1, self.t_step_limits[0], self.t_step_limits[1])
+                q_weights = self.map_range(action[0:12], -1, 1, self.map_limits[0,0:12], self.map_limits[1,0:12])
+                r_weights = self.map_range(action[12:16], -1, 1, self.map_limits[0,12:16], self.map_limits[1,12:16])
+                t_step = self.map_range(action[16], -1, 1, self.t_step_limits[0], self.t_step_limits[1])
 
         if(self.verbose == 1):
             with np.printoptions(precision=3, suppress=False, linewidth=140):
@@ -131,31 +138,29 @@ class SpacecraftEnv(gym.Env):
      
         # Simulate dynamics
         if self.verbose == 1: print("Simulating...")
-        sol = scd.simulate(self.state, time_range, q_weights, r_weights, self.A, self.u_max, self.satellite_mass)
+        sol = dd.simulate(self.state, time_range, q_weights, r_weights, self.A, self.B, self.u_max)
         if self.verbose == 1: print("Simulated")
         
         # Update state
         self.current_time = sol.t[-1]
-        self.deltaV -= sol.y[6, -1] - sol.y[6, 0]
         self.state = sol.y[:,-1]
         
-        self.pos = np.hstack((np.atleast_2d(self.pos), sol.y[0:3, :]))
-        self.vel = np.hstack((np.atleast_2d(self.vel), sol.y[3:6, :]))
+        self.position = np.hstack((np.atleast_2d(self.position), sol.y[0:3,:]))
+        self.attitude = np.hstack((np.atleast_2d(self.attitude), sol.y[3:6,:]))
+        self.velocity = np.hstack((np.atleast_2d(self.velocity), sol.y[6:9,:]))
+        self.spin = np.hstack((np.atleast_2d(self.spin), sol.y[9:12,:]))
         self.t = np.hstack((self.t, sol.t))
        
         normalised_state = self.normalise_state(self.state)
 
         # Check if converged
         converged = False
-        no_deltaV = False
         terminated = False
         truncated = False
 
         if sol.t_events[0].size != 0:
             converged = True
             terminated = True
-        elif sol.t_events[1].size != 0:
-            no_deltaV = True
         if self.current_time >= self.max_duration:
             truncated = True
 
@@ -168,19 +173,19 @@ class SpacecraftEnv(gym.Env):
 
         #$$ Reward Calculation
         
-        for (vel, pos) in zip(self.vel.T, self.pos.T):
-            reward -= np.linalg.norm(vel)/(np.linalg.norm(pos)+1) * (self.current_time - self.initial_time)
-
-        if converged:
-            reward += 100
+        if terminated:
+            reward = -np.linalg.norm(self.position)
+        if truncated:
+            reward = -1000
         
         #$$
         
         # Return
-        info = {'pos': self.pos, 
-                'vel': self.vel, 
+        info = {'position': self.position, 
+                'attitude': self.attitude,
+                'velocity': self.velocity, 
+                'spin': self.spin,
                 'time_punishment': time_punishment, 
-                'deltaV_punishment': deltaV_punishment, 
                 'distance_punishment': distance_punishment, 
                 'velocity_punishment': velocity_punishment, 
                 'truncated_punishment': truncated_punishment, 
@@ -203,8 +208,6 @@ class SpacecraftEnv(gym.Env):
             self.deterministic_state()
         elif(self.variance_type == 'none'):
             self.deterministic_state()
-        elif(self.variance_type == 'range'):
-            self.range_state()
         elif(self.variance_type == 'percentage'):
             self.var_state()
 
@@ -213,14 +216,16 @@ class SpacecraftEnv(gym.Env):
                 print("State: ", self.state)
 
         # Reset state vars
-        self.deltaV = 0
         self.current_time = 0
         self.num_updates = 0
         self.initial_time = 0
         self.t = np.zeros(1)
-        self.pos = np.atleast_2d(self.initial_state[0:3]).T
-        self.vel = np.atleast_2d(self.initial_state[3:6]).T
-        
+
+        self.position = np.atleast_2d(self.initial_state[0:3]).T
+        self.attitude = np.atleast_2d(self.initial_state[3:6]).T
+        self.velocity = np.atleast_2d(self.initial_state[6:9]).T
+        self.spin = np.atleast_2d(self.initial_state[9:12]).T
+       
         self.episode_options = {}
 
         return self.state, {}
@@ -230,13 +235,18 @@ class SpacecraftEnv(gym.Env):
         # Normalise the state
         normalised_state = np.zeros(state.shape)
 
-        normalised_state[0] = state[0]/self.max_pos
-        normalised_state[1] = state[1]/self.max_pos
-        normalised_state[2] = state[2]/self.max_pos
-        normalised_state[3] = state[3]/self.max_vel
-        normalised_state[4] = state[4]/self.max_vel
-        normalised_state[5] = state[5]/self.max_vel
-        normalised_state[6] = state[6]/self.initial_state[6]
+        normalised_state[0] = state[0]/self.max_position
+        normalised_state[1] = state[1]/self.max_position
+        normalised_state[2] = state[2]/self.max_position
+        normalised_state[3] = state[3]/self.max_attitude
+        normalised_state[4] = state[4]/self.max_attitude
+        normalised_state[5] = state[5]/self.max_attitude
+        normalised_state[6] = state[6]/self.max_velocity
+        normalised_state[7] = state[7]/self.max_velocity
+        normalised_state[8] = state[8]/self.max_velocity
+        normalised_state[9] = state[9]/self.max_spin
+        normalised_state[10] = state[10]/self.max_spin
+        normalised_state[11] = state[11]/self.max_spin
         
         if self.absolute_norm:
             normalised_state = np.abs(normalised_state)
@@ -249,36 +259,11 @@ class SpacecraftEnv(gym.Env):
         return (val - in_min)/(in_max - in_min)*(out_max - out_min) + out_min
     
     def var_state(self):
-        r = np.append(np.random.normal(-self.variance, self.variance, 6), 0)
+        r = np.random.normal(-self.variance, self.variance, 12)
         self.state = self.initial_state*(1+r)
         
     def deterministic_state(self):
         self.state = self.initial_state
-    
-    def range_state(self):
-        # Update state based on a radius from initial conditions and random angles from initial conditions
-        r = math.sqrt(self.initial_state[0]**2 + self.initial_state[1]**2 + self.initial_state[2]**2)
-        theta_initial = math.atan2(self.initial_state[1], self.initial_state[0])
-        phi_initial = math.acos(self.initial_state[2] / r)
-        
-        theta = np.random.uniform(theta_initial - self.variance, theta_initial + self.variance)
-        phi = np.random.uniform(phi_initial - self.variance, phi_initial + self.variance)
-        
-        v = math.sqrt(self.initial_state[3]**2 + self.initial_state[4]**2 + self.initial_state[5]**2)
-        gamma_initial = math.atan2(self.initial_state[4], self.initial_state[3])
-        alpha_initial = math.acos(self.initial_state[5] / v)
-        
-        gamma = np.random.uniform(gamma_initial - self.variance, gamma_initial + self.variance)
-        alpha = np.random.uniform(alpha_initial - self.variance, alpha_initial + self.variance)
-
-        self.state = np.array([0, 0, 0, 0, 0, 0, self.initial_state[6]], dtype=np.float32)
-        self.state[0] = r * math.sin(theta) * math.cos(phi)
-        self.state[1] = r * math.sin(theta) * math.sin(phi)
-        self.state[2] = r * math.cos(theta)
-
-        self.state[3] = v * math.sin(gamma) * math.cos(alpha)
-        self.state[4] = v * math.sin(gamma) * math.sin(alpha)
-        self.state[5] = v * math.cos(gamma)
         
     def set_episode_options(self, options):
         self.episode_options = options
