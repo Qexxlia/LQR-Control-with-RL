@@ -27,21 +27,23 @@ class DronePSO():
             0, # z
             0, # roll
             0, # pitch
+            0, # yaw
             0, # x_dot
             0, # y_dot
             0, # z_dot
             0, # roll_dot
             0, # pitch_dot
+            0, # yaw_dot
         ], dtype=np.float32)
         
         # Calculate A matrix for the dynamics
         (self.A, self.B) = dd.precalcMatrices(1, 0.11, 0.11, 0.04) # From F. Ahmed et al
 
-        self.bounds = (np.ones(14), np.ones(14)*1000)
+        self.bounds = (np.ones(16), np.ones(16)*1000)
         
     def optimize(self):
         # Initialize the optimizer
-        optimizer = GlobalBestPSO(n_particles=32, dimensions=14, options={'c1': 0.5, 'c2': 0.3, 'w':0.9})
+        optimizer = GlobalBestPSO(n_particles=32, dimensions=16, options={'c1': 0.5, 'c2': 0.3, 'w':0.9}, bounds=self.bounds)
         
         # Perform the optimization
         cost, pos = optimizer.optimize(self.cost_function, iters=10000)
@@ -57,12 +59,17 @@ class DronePSO():
         cost = np.zeros(x.shape[0])
         
         for i in range(0, x.shape[0]):
+            q_weights = x[i, 0:12]
+            r_weights = x[i, 12:16]
             print(i)
-            q_weights = x[i, 0:10]
-            r_weights = x[i, 10:14]
+            print(q_weights)
+            print(r_weights)
+            print("\n")
         
             sol = dd.simulate(self.initial_state, time_range, q_weights, r_weights, self.A, self.B, self.u_max)
         
             cost[i] = sol.t[-1]
+            if(sol.t[-1] > self.max_duration - 1):
+                cost[i] += -100*np.linalg.norm(sol.y[:,-1])
         
         return cost

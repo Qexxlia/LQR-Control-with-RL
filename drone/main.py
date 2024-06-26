@@ -35,7 +35,7 @@ gae_lambda = 0.95
 max_grad_norm = 0.5
 seed = 0
 
-log_std_init = np.log(0.1)
+log_std_init = np.log(1)
 
 # NUM EPISODES
 num_episodes = 3000
@@ -53,7 +53,7 @@ env_params = {
         ],
         dtype=np.float32
     ),
-    "t_step_limits" : np.array([1, 100], dtype=np.float32),
+    "t_step_limits" : np.array([0.1, 0.1], dtype=np.float32),
     "u_max" : 1e-0,
     "simulation_type" : "qrt",
     "t_step" : 5,

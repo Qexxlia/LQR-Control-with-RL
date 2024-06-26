@@ -174,9 +174,9 @@ class DroneEnv(gym.Env):
         #$$ Reward Calculation
         
         if terminated:
-            reward = -np.linalg.norm(self.position)
+            reward = -self.current_time
         if truncated:
-            reward = -1000
+            reward = -self.current_time - 100*np.linalg.norm(self.state)
         
         #$$
         
