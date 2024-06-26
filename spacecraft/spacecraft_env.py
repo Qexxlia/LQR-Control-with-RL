@@ -35,7 +35,8 @@ class SpacecraftEnv(gym.Env):
         self.satellite_mass = 15
 
         # Calculate A matrix for the dynamics
-        self.A = scd.calcAMatrix(6371 + 500, 3.986e5)
+        self.A, self.B = scd.precalcMatrices(6371 + 500, 3.986e5)
+
         
         # Calculate the maximum position and velocity for normalisation
         self.max_pos = max(abs(self.initial_state[0:3])) 

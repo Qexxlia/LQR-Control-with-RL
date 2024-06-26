@@ -17,7 +17,7 @@ X = [
 '''
 
 ## CALCULATIONS
-def calcAMatrix(a, mu):
+def precalcMatrices(a, mu):
     n = np.sqrt(mu/a**3)
 
     A = np.array(
@@ -30,10 +30,7 @@ def calcAMatrix(a, mu):
             [  0,   0, -n**2,   0,   0,   0]
         ], dtype=np.float32
     )
-    
-    return A
 
-def matrices(qWeights, rWeights):
     B = np.array(
         [
             [0, 0, 0],
@@ -44,17 +41,15 @@ def matrices(qWeights, rWeights):
             [0, 0, 1]
         ], dtype=np.float32
     )
+    return A, B
 
+def matrices(qWeights, rWeights):
     Q = np.diag(qWeights)
-
     R = np.diag(rWeights)
 
-    return B, Q, R
+    return Q, R
 
-def calculateControl(state, u_max, A, B, Q, R):
-    # Solve LQR for K using control library
-    [K, S, E] = ctrl.lqr(A, B, Q, R)
-
+def calculateControl(state, u_max, A, B, K):
     # Calculate control
     u = -K @ state[0:6]
 
@@ -69,16 +64,13 @@ def calculateControl(state, u_max, A, B, Q, R):
     
     return u, delta_mass
 
-def nextState(t, state, q_weights, r_weights, A, u_max, satellite_mass):
+def nextState(t, state, A, B, K, u_max, satellite_mass):
     # Get control
-    [B, Q, R] = matrices(q_weights, r_weights)
-    [u, dMass] = calculateControl(state, u_max, A, B, Q, R)
+    [u, dMass] = calculateControl(state, u_max, A, B, K)
 
     # Calculate change
     delta_state = np.append((A @ state[0:6]) + (B @ u), dMass)
     return delta_state
-
-
 
 
 ## SIMULATION INTEGRATION
@@ -88,16 +80,20 @@ def simulate(
         q_weights, 
         r_weights, 
         A, 
+        B,
         u_max,
         satellite_mass
         ):
+
+    [Q, R] = matrices(q_weights, r_weights)
+    [K, S, E] = ctrl.lqr(A, B, Q, R)
 
     sol = integrate.solve_ivp(
         nextState,
         time_range,
         state,
         # max_step = 0.25,
-        args=(q_weights, r_weights, A, u_max, satellite_mass),
+        args=(A, B, K, u_max, satellite_mass),
         events=(convergeEvent, massEvent),
         atol=1e-6,
         rtol=1e-3
@@ -108,7 +104,7 @@ def simulate(
 
 
 ## EVENTS
-def convergeEvent(t, state, q_weights, r_weights, A, u_max, satellite_mass):
+def convergeEvent(t, state, q_weights, r_weights, A, B, u_max, satellite_mass):
     pos_tol = 1e-3
     vel_tol = 1e-6
 
@@ -126,7 +122,7 @@ def convergeEvent(t, state, q_weights, r_weights, A, u_max, satellite_mass):
 convergeEvent.terminal = True
 convergeEvent.direction = 0
 
-def massEvent(t, state, qWeights, rWeights, A, u_max, satelliteMass):
+def massEvent(t, state, qWeights, rWeights, A, B, u_max, satelliteMass):
     if state[6] < satelliteMass:
         return 0
     return 1
