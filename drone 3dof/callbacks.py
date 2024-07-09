@@ -7,7 +7,7 @@ import numpy as np
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.logger import Figure, HParam, TensorBoardOutputFormat
 
-import spacecraft_dynamics as scd
+import drone_dynamics as dd
 
 class StateCallback(BaseCallback):
     def __init__(self, args, plot_rate):
@@ -34,7 +34,7 @@ class StateCallback(BaseCallback):
         # Record all actions taken
         action_record = action
 
-        # Simulate the spacecraft
+        # Simulate
         done = False
         while not done:
             [obs, reward, done, info] = vec_env.step(action)
@@ -46,37 +46,30 @@ class StateCallback(BaseCallback):
                 done = True
 
         # Extract data
-        pos = info[-1].get('pos')
-        vel = info[-1].get('vel')
+        attitude = info[-1].get('attitude')
+        spin = info[-1].get('spin')
+        settling_cost = info[-1].get('settling_cost')
+        overshoot_cost = info[-1].get('overshoot_cost')
         t = info[-1].get('t')
         reward = reward[-1]
 
         qWeights = vec_env.env_method("map_range", action_record[:,0:6], -1, 1, self.map_limits[0,0:6], self.map_limits[1,0:6])[0]
-        rWeights = vec_env.env_method("map_range", action_record[:,6:9], -1, 1, self.map_limits[0,6:9], self.map_limits[1,6:9])[0]
-        # t_step = vec_env.env_method("map_range", action_record[:,9], -1, 1, self.t_step_limits[0], self.t_step_limits[1])[0]
-        t_step = self.t_step_limits[0]
-
+        rWeights = vec_env.env_method("map_range", action_record[:,6], -1, 1, self.map_limits[0,6], self.map_limits[1,6])[0]
+        t_step = vec_env.env_method("map_range", action_record[:,7], -1, 1, self.t_step_limits[0], self.t_step_limits[1])[0]
 
         ## PLOT DATA
-
         if(self.rollouts % self.plot_rate == 0):
             # Action time steps
             first = True
-            # for step in t_step:
-            #     if first:
-            #         t_a = np.array([step])
-            #         first = False
-            #     else:
-            #         t_a = np.append(t_a, t_a[-1]+step)
-            
-            t_a = np.array([0, t_step])
-            while np.shape(t_a)[0] < np.shape(qWeights)[0]:
-                t_a = np.append(t_a, t_a[-1]+t_step)
-                
-            t_step = np.ones(np.shape(qWeights)[0]) * t_step
+            for step in t_step:
+                if first:
+                    t_a = np.array([step])
+                    first = False
+                else:
+                    t_a = np.append(t_a, t_a[-1]+step)
             
             # Time arrays for plotting
-            t_a1 = np.vstack((t_a, t_a, t_a)).transpose()
+            t_a1 = np.vstack((t_a, t_a, t_a, t_a)).transpose()
             t_a2 = t_a
             t_a = np.vstack((t_a, t_a, t_a, t_a, t_a, t_a)).transpose()
 
@@ -101,32 +94,29 @@ class StateCallback(BaseCallback):
             fig = create_plot(1, 'Q Weights', 'Time (s)', 'Weight', t_a, qWeights, ['Q0','Q1','Q2','Q3','Q4','Q5'])
             
             # R Weights
-            fig1 = create_plot(2, 'R Weights', 'Time (s)', 'Weight', t_a1, rWeights, ['R0','R1','R2'])
+            fig1 = create_plot(2, 'R Weights', 'Time (s)', 'Weight', t_a1, rWeights, ['R0','R1','R2', 'R3'])
             
             # Time Step
             fig2 = create_plot(3, 'Time Step', 'Time (s)', 'Time Step (s)', t_a2, t_step, None)
             
-            # Position
-            fig3 = create_plot(4, 'Position', 'Time (s)', 'Position (km)', t_e, pos[0:3, :].transpose(), ['x','y','z'])
-            
-            # Velocity
-            fig4 = create_plot(5, 'Velocity', 'Time (s)', 'Velocity (km/s)', t_e, vel[0:3, :].transpose(), ['x','y','z'])
+            # Attitude
+            fig4 = create_plot(5, 'Attitude', 'Time (s)', 'Angle (rad)', t_e, attitude.transpose(), ['roll','pitch', 'yaw'])
+
+            # Spin
+            fig6 = create_plot(7, 'Spin', 'Time (s)', 'Spin (rad/s)', t_e, spin.transpose(), ['roll','pitch','yaw'])
             
             # Log plots to tensorboard
             self.logger.record("plots/action/q_weights", Figure(fig, close = True), exclude=("stdout", "log", "json", "csv"))
             self.logger.record("plots/action/r_weights", Figure(fig1, close = True), exclude=("stdout", "log", "json", "csv"))
             self.logger.record("plots/action/time_step", Figure(fig2, close = True), exclude=("stdout", "log", "json", "csv"))
-            self.logger.record("plots/state/position", Figure(fig3, close = True), exclude=("stdout", "log", "json", "csv"))
-            self.logger.record("plots/state/velocity", Figure(fig4, close = True), exclude=("stdout", "log", "json", "csv"))
+            self.logger.record("plots/state/attitude", Figure(fig4, close = True), exclude=("stdout", "log", "json", "csv"))
+            self.logger.record("plots/state/spin", Figure(fig6, close = True), exclude=("stdout", "log", "json", "csv"))
 
         ## LOG DATA
         self.logger.record("time/ep_time_elapsed", t[-1], exclude=("stdout", "log", "json", "csv"))
-        self.logger.record("reward/deltaV_punishment", info[-1].get('deltaV_punishment'), exclude=("stdout", "log", "json", "csv"))
-        self.logger.record("reward/distance_punishment", info[-1].get('distance_punishment'), exclude=("stdout", "log", "json", "csv"))
-        self.logger.record("reward/velocity_punishment", info[-1].get('velocity_punishment'), exclude=("stdout", "log", "json", "csv"))
-        self.logger.record("reward/truncated_punishment", info[-1].get('truncated_punishment'), exclude=("stdout", "log", "json", "csv"))
-        self.logger.record("reward/time_punishment", info[-1].get('time_punishment'), exclude=("stdout", "log", "json", "csv"))
         self.logger.record("reward/reward", reward, exclude=("stdout", "log", "json", "csv"))
+        self.logger.record("reward/settling_cost", settling_cost, exclude=("stdout", "log", "json", "csv"))
+        self.logger.record("reward/overshoot_cost", overshoot_cost, exclude=("stdout", "log", "json", "csv"))
         
         self.rollouts += 1
         return True
@@ -144,7 +134,6 @@ class HParamCallback(BaseCallback):
         # Parameters to log
         hparam_dict = {
            "algorithm": self.model.__class__.__name__,
-           "learning rate": self.model.learning_rate,
            "n steps": self.model.n_steps,
            "n epochs": self.model.n_epochs,
            "batch size": self.model.batch_size,
@@ -162,7 +151,6 @@ class HParamCallback(BaseCallback):
            "initial state": np.array2string(self.env.get_attr('initial_state')[0]),
            "absolute norm": self.env.get_attr('absolute_norm')[0],
            "seed": self.env.get_attr('seed')[0],
-           "t step": self.env.get_attr('t_step')[0],
         }
 
         # Metrics to log
@@ -219,11 +207,10 @@ class TextDataCallback(BaseCallback):
             "Map Limits: " + np.array2string(self.env.get_attr('map_limits')[0]) + "<br>"\
             "Time Step Limits: " + np.array2string(self.env.get_attr('t_step_limits')[0]) + "<br>"\
             "Initial State" + np.array2string(self.env.get_attr('initial_state')[0]) + "<br>"\
-            "Max Pos: " + str(self.env.get_attr('max_pos')[0]) + "<br>" +\
-            "Max Vel: " + str(self.env.get_attr('max_vel')[0]) + "<br>" +\
+            "Max Attitude: " + str(self.env.get_attr('max_attitude')[0]) + "<br>" +\
+            "Max Spin: " + str(self.env.get_attr('max_spin')[0]) + "<br>" +\
             "Absolute Norm: " + str(self.env.get_attr('absolute_norm')[0]) + "<br>" +\
-            "Seed: " + str(self.env.get_attr('seed')[0]) + "<br>" + \
-            "T Step: " + str(self.env.get_attr('t_step')[0]) + "<br>"
+            "Seed: " + str(self.env.get_attr('seed')[0]) + "<br>"
 
         self.tb_writer.add_text("environment", env_text)
 
@@ -249,7 +236,7 @@ class TextDataCallback(BaseCallback):
             output = output.replace("\n", "<br>")
             return output
 
-        self.tb_writer.add_text("reward", extract_data("./spacecraft_env.py"))
+        self.tb_writer.add_text("reward", extract_data("./drone_env.py"))
         
         self.tb_writer.flush()
 

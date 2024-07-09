@@ -1,10 +1,11 @@
 import time
-from stable_baselines3 import PPO 
-# from sbx import PPO
+# from stable_baselines3 import PPO 
+from sbx import PPO
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.callbacks import CallbackList
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.monitor import Monitor
+from typing import Callable
 
 import numpy as np
 from math import pi
@@ -12,17 +13,21 @@ import os
 import tkinter
 from tkinter import filedialog
 
-from spacecraft_env import SpacecraftEnv as spe
+from drone_env import DroneEnv as de
 from callbacks import StateCallback
 from callbacks import HParamCallback
 from callbacks import TextDataCallback
 from callbacks import UMaxCallback
 
+def linear_schedule(initial_value: float) -> Callable[[float], float]:
+    def func(progress_remaining: float) -> float:
+        return progress_remaining * initial_value
+    return func
 
 #-------------------- PARAMETERS --------------------
 # Hyperparameters
-learning_rate = 1e-4
-n_steps = 1024
+learning_rate = linear_schedule(1e-3)
+n_steps = 2048
 batch_size = 64
 n_epochs = 10
 clip_range = 0.1
@@ -34,10 +39,10 @@ gae_lambda = 0.95
 max_grad_norm = 0.5
 seed = 0
 
-log_std_init = np.log(0.1)
+log_std_init = np.log(1)
 
 # NUM EPISODES
-num_episodes = 1500
+num_episodes = 3000
 num_time_steps = num_episodes * n_steps
 
 # Environment Parameters
@@ -47,22 +52,20 @@ env_params = {
     "max_duration" : 750,
     "map_limits" : np.array(
         [
-            [1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0],
-            [1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3]
+            np.ones(16)*1e-4,
+            np.ones(16)*500
         ],
         dtype=np.float32
     ),
-    "t_step_limits" : np.array([10, 10], dtype=np.float32),
-    "u_max" : 1e-2,
-    "simulation_type" : "qrt",
-    "t_step" : 0,
+    "t_step_limits" : np.array([1e-5, 10], dtype=np.float32),
+    "u_max" : 24,
     "seed" : seed,
-    "absolute_norm" : True
+    "absolute_norm" : False
 }
 
 u_max_callback_args = {
     "u_max_initial" : env_params["u_max"],
-    "u_max_final" : 1e-4,
+    "u_max_final" : 24,
     "step_gap" : 1024*100,
     "total_timesteps" : num_time_steps,
 }
@@ -72,17 +75,26 @@ device = 'cpu' #cpu or cuda
 
 
 # TEST TYPE
-testtype = "data_collection"
+testtype = ""
 additional_info = ""
 
 #-------------------- INITIALISE MODEL & RUN TRAINING --------------------
 
 timeStr = time.strftime("%Y%m%d-%H%M")
-if(input("Run as test? [Y/n]: ") != "n"):
-    name_string = "./models/testing/spacecraft/" + "PPO_" + timeStr + additional_info
+a = input("Run as test? [Y/n]: ")
+# if(a == "pso"):
+#     print("PSO")
+#     pso = dpso(env_params, verbose)
+#     cost, pos = pso.optimize()
+#     print("PSO Complete")
+#     print(cost)
+#     print(pos)
+#     exit()
+if(a != "n"):
+    name_string = "./models/testing/drone/" + "PPO_" + timeStr + additional_info
     print("TESTING")
 else:
-    name_string = "./models/spacecraft/" + testtype + "/PPO_" + timeStr + additional_info
+    name_string = "./models/drone/" + testtype + "/PPO_" + timeStr + additional_info
     i = 1
     while os.path.exists(name_string):
         name_string = name_string + "_" + str(i)
@@ -97,7 +109,7 @@ else:
 print("Path: " + name_string)
 
 # Create environment
-env = spe(verbose=verbose, args=env_params)
+env = de(verbose=verbose, args=env_params)
 env = Monitor(env)
 obs = env.reset()
 

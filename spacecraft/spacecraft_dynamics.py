@@ -104,7 +104,7 @@ def simulate(
 
 
 ## EVENTS
-def convergeEvent(t, state, q_weights, r_weights, A, B, u_max, satellite_mass):
+def convergeEvent(t, state, A, B, K, u_max, satellite_mass):
     pos_tol = 1e-3
     vel_tol = 1e-6
 
@@ -122,8 +122,8 @@ def convergeEvent(t, state, q_weights, r_weights, A, B, u_max, satellite_mass):
 convergeEvent.terminal = True
 convergeEvent.direction = 0
 
-def massEvent(t, state, qWeights, rWeights, A, B, u_max, satelliteMass):
-    if state[6] < satelliteMass:
+def massEvent(t, state, A, B, K, u_max, satellite_mass):
+    if state[6] < satellite_mass:
         return 0
     return 1
 massEvent.terminal = True

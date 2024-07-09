@@ -1,18 +1,37 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import spacecraft_dynamics as scd
 
-num_time_steps = 100
-step_gap = 20
+state = np.array([
+    0.5,    # x
+    -0.5,    # y
+    0,    # z
+    1e-3,   # x_dot
+    -1e-3,   # y_dot
+    0,   # z_dot
+    30,   # mass 
+], dtype=np.float32)
 
-initial = 3
-final = 0.3
+q_weights = np.ones(6)
+r_weights = np.ones(3)
 
-a = np.linspace(0, num_time_steps, (int)(num_time_steps/step_gap) + 1)
-print(a)
+[A,B] = scd.precalcMatrices(6371 + 500, 3.986e5)
 
-b = np.linspace(initial, final, (int)(num_time_steps/step_gap))
-print(b)
+u_max = 1e-2
 
-plt.stairs(b, a)
+sol = scd.simulate(state, (0, 1000), q_weights, r_weights, A, B, u_max, 15)
 
+plt.plot(sol.t, sol.y[0])
+plt.plot(sol.t, sol.y[1])
 plt.show()
+
+delta_v = sol.y[6, -1] - sol.y[6, 0]
+
+print(sol.y[6])
+
+time = sol.t[-1] - sol.t[0]
+
+print("Delta V: " + str(delta_v))
+print("Time: " + str(time))
+
+input()

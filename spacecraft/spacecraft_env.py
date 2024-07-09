@@ -15,7 +15,6 @@ class SpacecraftEnv(gym.Env):
         self.max_duration = args.get('max_duration')
         self.map_limits = args.get('map_limits')
         self.u_max = args.get('u_max')
-        self.simulation_type = args.get('simulation_type')
         self.t_step = args.get('t_step')
         self.seed = args.get('seed')
         self.absolute_norm = args.get('absolute_norm')
@@ -37,27 +36,12 @@ class SpacecraftEnv(gym.Env):
         # Calculate A matrix for the dynamics
         self.A, self.B = scd.precalcMatrices(6371 + 500, 3.986e5)
 
-        
         # Calculate the maximum position and velocity for normalisation
         self.max_pos = max(abs(self.initial_state[0:3])) 
-        self.max_vel = self.max_pos/10
+        self.max_vel = self.max_pos/5
 
         # Define the action space
-        match self.simulation_type:
-            case 'q':
-                action_limits = np.ones(6, dtype=np.float32)
-            case 'qt':
-                action_limits = np.ones(7, dtype=np.float32)
-            case 'r':
-                action_limits = np.ones(3, dtype=np.float32)
-            case 'rt':
-                action_limits = np.ones(4, dtype=np.float32)
-            case 'qr':
-                action_limits = np.ones(9, dtype=np.float32)
-            case 'qrt':
-                action_limits = np.ones(10, dtype=np.float32)
-            case _:
-                raise ValueError("Invalid simulation type")
+        action_limits = np.ones(9, dtype=np.float32)
 
         self.action_space = gym.spaces.Box(
             low = -action_limits,
@@ -98,27 +82,10 @@ class SpacecraftEnv(gym.Env):
 
     def step(self, action):
         # Define action
-        match self.simulation_type:
-            case('q'):
-                q_weights = self.map_range(action[0:6], -1, 1, self.map_limits[0,0:6], self.map_limits[1,0:6])
-                r_weights = np.ones(3, dtype=np.float32)
-                t_step = self.t_step
-            case('qt'):
-                q_weights = self.map_range(action[0:6], -1, 1, self.map_limits[0,0:6], self.map_limits[1,0:6])
-                r_weights = np.ones(3, dtype=np.float32)
-                t_step = self.map_range(action[6], -1, 1, self.t_step_limits[0], self.t_step_limits[1])
-            case('r'):
-                q_weights = np.ones(6, dtype=np.float32)
-                r_weights = self.map_range(action[0:3], -1, 1, self.map_limits[0,6:9], self.map_limits[1,6:9])
-                t_step = self.map_range(action[4], -1, 1, self.t_step_limits[0], self.t_step_limits[1])
-            case('qr'):
-                q_weights = self.map_range(action[0:6], -1, 1, self.map_limits[0,0:6], self.map_limits[1,0:6])
-                r_weights = self.map_range(action[6:9], -1, 1, self.map_limits[0,6:9], self.map_limits[1,6:9])
-                t_step = self.t_step
-            case('qrt'):
-                q_weights = self.map_range(action[0:6], -1, 1, self.map_limits[0,0:6], self.map_limits[1,0:6])
-                r_weights = self.map_range(action[6:9], -1, 1, self.map_limits[0,6:9], self.map_limits[1,6:9])
-                t_step = self.map_range(action[9], -1, 1, self.t_step_limits[0], self.t_step_limits[1])
+        q_weights = self.map_range(action[0:6], -1, 1, self.map_limits[0,0:6], self.map_limits[1,0:6])
+        r_weights = self.map_range(action[6:9], -1, 1, self.map_limits[0,6:9], self.map_limits[1,6:9])
+        # t_step = self.map_range(action[9], -1, 1, self.t_step_limits[0], self.t_step_limits[1])
+        t_step = self.t_step_limits[0]
 
         if(self.verbose == 1):
             with np.printoptions(precision=3, suppress=False, linewidth=140):
@@ -132,7 +99,7 @@ class SpacecraftEnv(gym.Env):
      
         # Simulate dynamics
         if self.verbose == 1: print("Simulating...")
-        sol = scd.simulate(self.state, time_range, q_weights, r_weights, self.A, self.u_max, self.satellite_mass)
+        sol = scd.simulate(self.state, time_range, q_weights, r_weights, self.A, self.B, self.u_max, self.satellite_mass)
         if self.verbose == 1: print("Simulated")
         
         # Update state
@@ -157,6 +124,7 @@ class SpacecraftEnv(gym.Env):
             terminated = True
         elif sol.t_events[1].size != 0:
             no_deltaV = True
+            truncated = True
         if self.current_time >= self.max_duration:
             truncated = True
 
@@ -168,13 +136,13 @@ class SpacecraftEnv(gym.Env):
         reward = 0
 
         #$$ Reward Calculation
+        if terminated or truncated:
+            deltaV_punishment = 55.0533 * self.deltaV * 1
+            time_punishment = 0.4098 * self.current_time * 100
+        if truncated:
+            truncated_punishment = 200 * np.linalg.norm(self.state[0:3])
         
-        for (vel, pos) in zip(self.vel.T, self.pos.T):
-            reward -= np.linalg.norm(vel)/(np.linalg.norm(pos)+1) * (self.current_time - self.initial_time)
-
-        if converged:
-            reward += 100
-        
+        reward = -deltaV_punishment - time_punishment - truncated_punishment
         #$$
         
         # Return

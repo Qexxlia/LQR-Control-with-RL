@@ -57,7 +57,7 @@ def precalcMatrices(m, Ix, Iy, Iz):
             [0, 0, 0,   0, 0, 0,   0, 0, 0,   0, 0, 0],
             [0, 0, 0,   0, 0, 0,   0, 0, 0,   0, 0, 0],
         ]
-    )
+    , dtype=np.float32)
 
     B = np.array([
             [0,    0,    0,    0],
@@ -76,7 +76,7 @@ def precalcMatrices(m, Ix, Iy, Iz):
             [0,    0,    1/Iy, 0],
             [0,    0,    0,    1/Iz]
         ]
-    )
+    , dtype=np.float32)
     
     return A, B
 
@@ -116,8 +116,11 @@ def simulate(
         u_max
         ):
     
+    input()
     [Q,R] = matrices(q_weights, r_weights)
+    input()
     [K, S, E] = ctrl.lqr(A, B, Q, R)
+    input()
 
     sol = integrate.solve_ivp(
         nextState,
