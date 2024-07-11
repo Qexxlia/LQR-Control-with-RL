@@ -1,6 +1,6 @@
 import time
-# from stable_baselines3 import PPO 
-from sbx import PPO
+from stable_baselines3 import PPO 
+# from sbx import PPO
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.callbacks import CallbackList
 from stable_baselines3.common.callbacks import CheckpointCallback
@@ -9,6 +9,7 @@ from typing import Callable
 
 import numpy as np
 from math import pi
+import math
 import os
 import tkinter
 from tkinter import filedialog
@@ -27,7 +28,7 @@ def linear_schedule(initial_value: float) -> Callable[[float], float]:
 #-------------------- PARAMETERS --------------------
 # Hyperparameters
 learning_rate = linear_schedule(1e-3)
-n_steps = 2048
+n_steps = 1024
 batch_size = 64
 n_epochs = 10
 clip_range = 0.1
@@ -42,22 +43,22 @@ seed = 0
 log_std_init = np.log(1)
 
 # NUM EPISODES
-num_episodes = 3000
+num_episodes = 1500 
 num_time_steps = num_episodes * n_steps
 
 # Environment Parameters
 env_params = {
     "variance_type" : "none",
     "variance" : 0,
-    "max_duration" : 750,
+    "max_duration" : 50,
     "map_limits" : np.array(
         [
-            np.ones(16)*1e-4,
-            np.ones(16)*500
+            [math.sqrt(1.29e-3), math.sqrt(1.29e-3)],
+            [math.sqrt(9.129), math.sqrt(9.129)]
         ],
         dtype=np.float32
     ),
-    "t_step_limits" : np.array([1e-5, 10], dtype=np.float32),
+    "t_step_limits" : np.array([0.2, 0.2], dtype=np.float32),
     "u_max" : 24,
     "seed" : seed,
     "absolute_norm" : False
@@ -126,6 +127,7 @@ callbacks = CallbackList([state_callback, hparam_callback, eval_callback, text_d
 policy_kwargs = {
     'share_features_extractor' : False,
     'log_std_init' : log_std_init,
+    'net_arch' : dict(pi=[60, 177 ,520], vf=[60, 25, 10])
 }
 
 if not continue_training:
@@ -147,7 +149,9 @@ if not continue_training:
         policy_kwargs=policy_kwargs,
         seed = seed
     )
-
+    
+    input(model.policy)
+    
     # Start learning
     model.learn(total_timesteps=num_time_steps, progress_bar=True, callback=callbacks)
 else:

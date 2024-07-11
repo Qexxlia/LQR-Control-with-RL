@@ -138,7 +138,7 @@ class SpacecraftEnv(gym.Env):
         #$$ Reward Calculation
         if terminated or truncated:
             deltaV_punishment = 55.0533 * self.deltaV * 1
-            time_punishment = 0.4098 * self.current_time * 100
+            time_punishment = 0.4098 * self.current_time * 10
         if truncated:
             truncated_punishment = 200 * np.linalg.norm(self.state[0:3])
         
@@ -215,7 +215,10 @@ class SpacecraftEnv(gym.Env):
 
     def map_range(self, val, in_min, in_max, out_min, out_max):
         # Map a value from one range to another
-        return (val - in_min)/(in_max - in_min)*(out_max - out_min) + out_min
+        if(self.episode_options.get('log', 0) == 0):
+            return (val - in_min)/(in_max - in_min)*(out_max - out_min) + out_min
+        else:
+            return out_min * (out_max/out_min)**((val - in_min)/(in_max - in_min)) # LOG
     
     def var_state(self):
         r = np.append(np.random.normal(-self.variance, self.variance, 6), 0)
