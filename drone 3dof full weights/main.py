@@ -11,7 +11,6 @@ import numpy as np
 from math import pi
 import math
 import os
-import tkinter
 from tkinter import filedialog
 
 from drone_env import DroneEnv as de
@@ -28,14 +27,14 @@ def linear_schedule(initial_value: float) -> Callable[[float], float]:
 #-------------------- PARAMETERS --------------------
 # Hyperparameters
 learning_rate = linear_schedule(1e-3)
-n_steps = 1024
+n_steps = 2048
 batch_size = 64
 n_epochs = 10
 clip_range = 0.1
 gamma = 0.99
 
 vf_coef = 0.5
-ent_coef = 0.0
+ent_coef = 0
 gae_lambda = 0.95
 max_grad_norm = 0.5
 seed = 0
@@ -43,22 +42,23 @@ seed = 0
 log_std_init = np.log(1)
 
 # NUM EPISODES
-num_episodes = 1500 
+num_episodes = 3000 
 num_time_steps = num_episodes * n_steps
 
 # Environment Parameters
 env_params = {
     "variance_type" : "none",
     "variance" : 0,
-    "max_duration" : 50,
+    "max_duration" : 100,
     "map_limits" : np.array(
         [
-            [math.sqrt(1.29e-3), math.sqrt(1.29e-3)],
-            [math.sqrt(9.129), math.sqrt(9.129)]
+            [1.29e-3, 1.29e-3],
+            # [-9.129, -9.129],
+            [9.129, 9.129]
         ],
         dtype=np.float32
     ),
-    "t_step_limits" : np.array([0.2, 0.2], dtype=np.float32),
+    "t_step_limits" : np.array([1, 1], dtype=np.float32),
     "u_max" : 24,
     "seed" : seed,
     "absolute_norm" : False
@@ -155,7 +155,7 @@ if not continue_training:
     # Start learning
     model.learn(total_timesteps=num_time_steps, progress_bar=True, callback=callbacks)
 else:
-    model = PPO.load(name_string + "/final_model/final_model.zip", 
+    model = PPO.load(name_string + "/checkpoints/rl_model_1536000_steps", 
                     env=env, 
                     device=device,
                     tensorboard_log=name_string + "/logs/"

@@ -112,12 +112,21 @@ class StateCallback(BaseCallback):
             # Velocity
             fig4 = create_plot(5, 'Velocity', 'Time (s)', 'Velocity (km/s)', t_e, vel[0:3, :].transpose(), ['x','y','z'])
             
+            # XY
+            fig5 = plt.figure(6, figsize=(5,5))
+            ax = fig5.add_subplot(1,1,1)
+            ax.plot(pos[0,:], pos[1,:])
+            ax.set_title('XY Position', fontsize=tsL)
+            ax.set_xlabel('x (km)', fontsize=tsS)
+            ax.set_ylabel('y (km)', fontsize=tsS)
+            
             # Log plots to tensorboard
             self.logger.record("plots/action/q_weights", Figure(fig, close = True), exclude=("stdout", "log", "json", "csv"))
             self.logger.record("plots/action/r_weights", Figure(fig1, close = True), exclude=("stdout", "log", "json", "csv"))
             self.logger.record("plots/action/time_step", Figure(fig2, close = True), exclude=("stdout", "log", "json", "csv"))
             self.logger.record("plots/state/position", Figure(fig3, close = True), exclude=("stdout", "log", "json", "csv"))
             self.logger.record("plots/state/velocity", Figure(fig4, close = True), exclude=("stdout", "log", "json", "csv"))
+            self.logger.record("plots/state/xy", Figure(fig5, close = True), exclude=("stdout", "log", "json", "csv"))
 
         ## LOG DATA
         self.logger.record("time/ep_time_elapsed", t[-1], exclude=("stdout", "log", "json", "csv"))

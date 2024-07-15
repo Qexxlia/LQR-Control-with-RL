@@ -20,28 +20,20 @@ class DroneEnv(gym.Env):
         self.absolute_norm = args.get('absolute_norm')
         self.verbose = verbose
         
-        self.desired_angle = 0.0872664625997165
+        self.ref = np.array([1, -1, 0.5], dtype=np.float32)
 
         # Define the initial state
-        self.initial_state = np.array([
-            -self.desired_angle, # r
-            -self.desired_angle, # p
-            -self.desired_angle, # y
-            0, # dr
-            0, # dp
-            0, # dy
-        ], dtype=np.float32)
+        self.initial_state = np.zeros(12)
         
         # Calculate A matrix for the dynamics
-        (self.A, self.B) = dd.precalcMatrices(0.0036, 0.1188, 0.1969, 0.0552, 0.0552, 0.1104)
+        (self.A_ang, self.B_ang, self.A_pos, self.B_pos) = dd.precalcMatrices(0.0036, 0.1188, 0.1969, 0.0552, 0.0552, 0.1104, 1, 9.81)
         
         # Calculate the maximum position and velocity for normalisation
-        self.max_attitude = 2*self.desired_angle
-        self.max_spin = 6*self.desired_angle
+        self.max_pos = 1.1*self.ref
+        self.max_attitude = 0.01
 
         # Define the action space
-        action_limits = np.ones(52, dtype=np.float32)
-
+        action_limits = np.ones(14, dtype=np.float32)
         self.action_space = gym.spaces.Box(
             low = -action_limits,
             high = action_limits,
@@ -65,13 +57,11 @@ class DroneEnv(gym.Env):
         # Define timeframe
         self.current_time = 0
         self.initial_time = 0
-        
         self.t_step = self.t_step_limits[0]
         
         # Tracking position
-        self.attitude = np.atleast_2d(self.initial_state[0:3] + self.desired_angle)
-        self.spin = np.atleast_2d(self.initial_state[3:6]).T
-        self.u = np.atleast_2d(np.zeros(4, dtype=np.float32)).T
+        self.position = np.atleast_2d(self.initial_state[0:3]).T
+        self.attitude = np.atleast_2d(self.initial_state[7:10]).T
         
         # Set the random seed
         np.random.seed(self.seed)
@@ -81,78 +71,51 @@ class DroneEnv(gym.Env):
 
     def step(self, action):
         # Define action
-        # q = self.log_map_range(action[0:21], -1, 1, np.ones(21)*self.map_limits[0,0], np.ones(21)*self.map_limits[1,0])
-        # r = self.log_map_range(action[21:31], -1, 1, np.ones(10)*self.map_limits[0,1], np.ones(10)*self.map_limits[1,1])
-        
-        # Q = np.array([
-        #     [q[0], q[1],  q[2],  q[3],  q[4],  q[5]],
-        #     [q[1], q[6],  q[7],  q[8],  q[9],  q[10]],
-        #     [q[2], q[7],  q[11], q[12], q[13], q[14]],
-        #     [q[3], q[8],  q[12], q[15], q[16], q[17]],
-        #     [q[4], q[9],  q[13], q[16], q[18], q[19]],
-        #     [q[5], q[10], q[14], q[17], q[19], q[20]]
-        # ])
-        
-        # input(Q)
-        
-        # R = np.array([
-        #     [r[0], r[1], r[2], r[3]],
-        #     [r[1], r[4], r[5], r[6]],
-        #     [r[2], r[5], r[7], r[8]],
-        #     [r[3], r[6], r[8], r[9]]
-        # ])
-        q = np.reshape(self.linear_map_range(action[0:36], -1, 1, np.ones(36)*self.map_limits[0,0], np.ones(36)*self.map_limits[1,0]),(6,6))
-        r = np.reshape(self.linear_map_range(action[36:52], -1, 1, np.ones(16)*self.map_limits[0,1], np.ones(16)*self.map_limits[1,1]),(4,4))
-        
-        Q = q.T @ q
-        R = r.T @ r
-        
-        # Ensure R is not singular
-        R = R + 1e-6*np.eye(4)
+        Q_ang = np.diag(self.log_map_range(action[0:6], -1, 1, np.ones(6)*self.map_limits[0,0], np.ones(6)*self.map_limits[1,0]))
+        R_ang = self.log_map_range(action[6], -1, 1, self.map_limits[0,1], self.map_limits[1,1])*np.eye(4)
+        Q_pos = np.diag(self.log_map_range(action[7:13], -1, 1, np.ones(6)*self.map_limits[0,2], np.ones(6)*self.map_limits[1,2]))
+        R_pos = self.log_map_range(action[13], -1, 1, self.map_limits[0,3], self.map_limits[1,3])*np.eye(3)
 
         # Set time range
         time_range = (self.current_time, self.current_time + self.t_step)
      
         # Simulate dynamics
-        sol = dd.simulate(self.state, time_range, Q, R, self.A, self.B, self.u_max)
+        if self.verbose == 1: print("Simulating...")
+        sol = dd.simulate(self.state, time_range, self.ref, self.A_pos, self.B_pos, Q_pos, R_pos, self.A_ang, self.B_ang, Q_ang, R_ang, self.max_attitude)
+        if self.verbose == 1: print("Simulated")
         
         # Update state
         self.current_time = sol.t[-1]
         self.state = sol.y[:,-1]
-        
-        self.attitude = np.hstack((np.atleast_2d(self.attitude), sol.y[0:3,:] + self.desired_angle))
-        self.spin = np.hstack((np.atleast_2d(self.spin), sol.y[3:6,:]))
+
+        self.attitude = np.hstack((np.atleast_2d(self.attitude), sol.y[7:10,:]))
+        self.position = np.hstack((np.atleast_2d(self.position), sol.y[0:3,:]))
         self.t = np.hstack((self.t, sol.t))
        
         normalised_state = self.normalise_state(self.state)
 
-        # Check if converged
-        converged = False
         terminated = False
         truncated = False
 
         if sol.t_events[0].size != 0:
-            converged = True
             terminated = True
         if self.current_time >= self.max_duration:
             truncated = True
 
         reward = 0
-        settling_cost = 0
-        overshoot_cost = 0
 
         #$$ Reward Calculation
-        attitude_error = -(self.attitude[0:3,:] - self.desired_angle) 
         if terminated:
-            reward = -(integrate.simps((attitude_error[0,:]**2 + attitude_error[1,:]**2 + attitude_error[2,:]**2), self.t) + self.current_time) * 10
+            reward = -self.current_time
         if truncated:
-            reward = -(integrate.simps((attitude_error[0,:]**2 + attitude_error[1,:]**2 + attitude_error[2,:]**2), self.t) + self.current_time) * 20
+            reward += -np.linalg.norm(self.position[:,-1] - self.ref)
+            
         #$$
         
         # Return
         info = {
                 'attitude': self.attitude,
-                'spin': self.spin,
+                'position': self.position,
                 't' : self.t,
                 }
             
@@ -168,12 +131,7 @@ class DroneEnv(gym.Env):
         else:
             self.verbose = 0
 
-        if(options.get('deterministic', 0) == 1):
-            self.deterministic_state()
-        elif(self.variance_type == 'none'):
-            self.deterministic_state()
-        elif(self.variance_type == 'percentage'):
-            self.var_state()
+        self.deterministic_state()
 
         if(self.verbose == 1):
             with np.printoptions(precision=3, suppress=False, linewidth=140):
@@ -185,24 +143,19 @@ class DroneEnv(gym.Env):
         self.initial_time = 0
         self.t = np.zeros(1)
 
-        self.attitude = np.atleast_2d(self.initial_state[0:3] + self.desired_angle).T
-        self.spin = np.atleast_2d(self.initial_state[3:6]).T
+        self.position = np.atleast_2d(self.initial_state[0:3]).T
+        self.attitude = np.atleast_2d(self.initial_state[7:10]).T
        
         self.episode_options = {}
+        
+        normalised_state = self.normalise_state(self.state)
 
-        return self.state, {}
+        return normalised_state, {}
     
 
     def normalise_state (self, state):
         # Normalise the state
-        normalised_state = np.zeros(state.shape)
-
-        normalised_state[0] = state[0]/self.max_attitude
-        normalised_state[1] = state[1]/self.max_attitude
-        normalised_state[2] = state[2]/self.max_attitude
-        normalised_state[3] = state[3]/self.max_spin
-        normalised_state[4] = state[4]/self.max_spin
-        normalised_state[5] = state[5]/self.max_spin
+        normalised_state = np.hstack((state[0:3]/self.max_pos, state[7:10]/self.max_attitude))
         
         if self.absolute_norm:
             normalised_state = np.abs(normalised_state)
@@ -217,10 +170,6 @@ class DroneEnv(gym.Env):
     def log_map_range(self, val, in_min, in_max, out_min, out_max):
         return out_min * (out_max/out_min)**((val - in_min)/(in_max - in_min)) # LOG
     
-    def var_state(self):
-        r = np.random.normal(-self.variance, self.variance, 6)
-        self.state = self.initial_state*(1+r)
-        
     def deterministic_state(self):
         self.state = self.initial_state
         

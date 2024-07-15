@@ -2,6 +2,7 @@ import gymnasium as gym
 import numpy as np
 import pandas as pd
 import math
+from scipy import integrate
 
 import spacecraft_dynamics as scd
 
@@ -29,7 +30,7 @@ class SpacecraftEnv(gym.Env):
             -1e-3,   # y_dot
             0,   # z_dot
             30,   # mass 
-        ], dtype=np.float32)
+        ], dtype=np.float64)
         
         self.satellite_mass = 15
 
@@ -37,16 +38,16 @@ class SpacecraftEnv(gym.Env):
         self.A, self.B = scd.precalcMatrices(6371 + 500, 3.986e5)
 
         # Calculate the maximum position and velocity for normalisation
-        self.max_pos = max(abs(self.initial_state[0:3])) 
-        self.max_vel = self.max_pos/5
+        self.max_pos = 1
+        self.max_vel = 0.005
 
         # Define the action space
-        action_limits = np.ones(9, dtype=np.float32)
+        action_limits = np.ones(9, dtype=np.float64)
 
         self.action_space = gym.spaces.Box(
             low = -action_limits,
             high = action_limits,
-            dtype = np.float32
+            dtype = np.float64
         )
         
         # Change the observation space if absolute normalisation is used
@@ -56,11 +57,11 @@ class SpacecraftEnv(gym.Env):
             boolabs = -1
         
         # Define the observation space
-        observation_limits = np.ones(7, dtype=np.float32)
+        observation_limits = np.ones(7, dtype=np.float64)
         self.observation_space = gym.spaces.Box(
             low = boolabs*observation_limits,
             high = observation_limits,
-            dtype = np.float32
+            dtype = np.float64
         )
 
         # Define timeframe
@@ -73,6 +74,9 @@ class SpacecraftEnv(gym.Env):
         # Tracking position
         self.pos = np.atleast_2d(self.initial_state[0:3]).T
         self.vel = np.atleast_2d(self.initial_state[3:6]).T
+        
+
+        self.reward_vel_limit = integrate.simps([0.0001, 0.0001], [0, self.t_step_limits[0]])
         
         # Set the random seed
         np.random.seed(self.seed)
@@ -135,15 +139,20 @@ class SpacecraftEnv(gym.Env):
         deltaV_punishment = 0
         reward = 0
 
-        #$$ Reward Calculation
-        if terminated or truncated:
-            deltaV_punishment = 55.0533 * self.deltaV * 1
-            time_punishment = 0.4098 * self.current_time * 10
-        if truncated:
-            truncated_punishment = 200 * np.linalg.norm(self.state[0:3])
+        # if terminated or truncated:
+        #     distance_punishment = integrate.simps((self.pos[0,:]**2 + self.pos[1,:]**2 + self.pos[2,:]**2), self.t)
+        #     velocity_punishment = integrate.simps((self.vel[0,:]**2 + self.vel[1,:]**2 + self.vel[2,:]**2), self.t) * 5000
+        #     time_punishment = self.current_time
         
-        reward = -deltaV_punishment - time_punishment - truncated_punishment
+        # reward = -deltaV_punishment - time_punishment - truncated_punishment - distance_punishment - velocity_punishment
+
+        #$$ Reward Calculation
+        
+        reward = -integrate.simps((sol.y[0,:]**2 + sol.y[1,:]**2 + sol.y[2,:]**2), sol.t)
+        reward -= 1
+
         #$$
+        deltaV_punishment = self.deltaV
         
         # Return
         info = {'pos': self.pos, 
@@ -215,10 +224,10 @@ class SpacecraftEnv(gym.Env):
 
     def map_range(self, val, in_min, in_max, out_min, out_max):
         # Map a value from one range to another
-        if(self.episode_options.get('log', 0) == 0):
-            return (val - in_min)/(in_max - in_min)*(out_max - out_min) + out_min
-        else:
-            return out_min * (out_max/out_min)**((val - in_min)/(in_max - in_min)) # LOG
+        # if(self.episode_options.get('log', 0) == 0):
+            # return (val - in_min)/(in_max - in_min)*(out_max - out_min) + out_min
+        # else:
+        return out_min * (out_max/out_min)**((val - in_min)/(in_max - in_min)) # LOG
     
     def var_state(self):
         r = np.append(np.random.normal(-self.variance, self.variance, 6), 0)
@@ -243,7 +252,7 @@ class SpacecraftEnv(gym.Env):
         gamma = np.random.uniform(gamma_initial - self.variance, gamma_initial + self.variance)
         alpha = np.random.uniform(alpha_initial - self.variance, alpha_initial + self.variance)
 
-        self.state = np.array([0, 0, 0, 0, 0, 0, self.initial_state[6]], dtype=np.float32)
+        self.state = np.array([0, 0, 0, 0, 0, 0, self.initial_state[6]], dtype=np.float64)
         self.state[0] = r * math.sin(theta) * math.cos(phi)
         self.state[1] = r * math.sin(theta) * math.sin(phi)
         self.state[2] = r * math.cos(theta)

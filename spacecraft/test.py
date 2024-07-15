@@ -1,8 +1,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import spacecraft_dynamics as scd
+from scipy.integrate import simps
 
-state = np.array([
+
+a = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=np.float32)
+t = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=np.float32)
+
+b = simps(a, t)
+c = simps([1, 1], [1, 9])
+c = simps([0.001, 0.001], [0, 2000])
+
+print(b)
+print(c)
+
+
+""" state = np.array([
     0.5,    # x
     -0.5,    # y
     0,    # z
@@ -34,4 +47,4 @@ time = sol.t[-1] - sol.t[0]
 print("Delta V: " + str(delta_v))
 print("Time: " + str(time))
 
-input()
+input( )"""

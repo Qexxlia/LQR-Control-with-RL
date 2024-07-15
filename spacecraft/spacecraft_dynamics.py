@@ -28,7 +28,7 @@ def precalcMatrices(a, mu):
             [3*n**2,   0,   0,   0, 2*n,   0],
             [  0,   0,   0, -2*n,   0,   0],
             [  0,   0, -n**2,   0,   0,   0]
-        ], dtype=np.float32
+        ], dtype=np.float64
     )
 
     B = np.array(
@@ -39,7 +39,7 @@ def precalcMatrices(a, mu):
             [1, 0, 0],
             [0, 1, 0],
             [0, 0, 1]
-        ], dtype=np.float32
+        ], dtype=np.float64
     )
     return A, B
 

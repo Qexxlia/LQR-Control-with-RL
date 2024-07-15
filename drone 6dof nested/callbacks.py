@@ -47,30 +47,26 @@ class StateCallback(BaseCallback):
                 if(info[-1].get('t')[-1] > self.max_duration):
                     done = True
                     
-            q_weights = np.zeros((np.shape(action_record)[0], 36))
-            r_weights = np.zeros((np.shape(action_record)[0], 16))
+            q_weights = np.zeros((np.shape(action_record)[0], 12))
+            r_weights = np.zeros((np.shape(action_record)[0], 2))
 
             for i in range(0, np.shape(action_record)[0]):
-                q_weights1 = np.reshape(vec_env.env_method("linear_map_range", action_record[i,0:36], -1, 1, np.ones(36)*self.map_limits[0,1], np.ones(36)*self.map_limits[1,1]), (6,6))
-                r_weights1 = np.reshape(vec_env.env_method("linear_map_range", action_record[i,36:52], -1, 1, np.ones(16)*self.map_limits[0,1], np.ones(16)*self.map_limits[1,1]), (4,4))
-            
-                Q = q_weights1.T @ q_weights1
-                R = r_weights1.T @ r_weights1 + 1e-6*np.eye(4)
-
-                q_weights[i,:] = np.reshape(Q, (36,))
-                r_weights[i,:] = np.reshape(R, (16,))
+                Q_ang = vec_env.env_method("log_map_range", action_record[i,0:6], -1, 1, np.ones(6)*self.map_limits[0,0], np.ones(6)*self.map_limits[1,0])
+                R_ang = vec_env.env_method("log_map_range", action_record[i,6], -1, 1, self.map_limits[0,1], self.map_limits[1,1])
+                Q_pos = vec_env.env_method("log_map_range", action_record[i,7:13], -1, 1, np.ones(6)*self.map_limits[0,2], np.ones(6)*self.map_limits[1,2])
+                R_pos = vec_env.env_method("log_map_range", action_record[i,13], -1, 1, self.map_limits[0,3], self.map_limits[1,3])
+                
+                q_weights[i] = np.hstack((Q_ang, Q_pos))
+                r_weights[i] = np.hstack((R_ang, R_pos))
 
             # Extract data
             attitude = info[-1].get('attitude')
-            spin = info[-1].get('spin')
-            settling_cost = info[-1].get('settling_cost')
-            overshoot_cost = info[-1].get('overshoot_cost')
+            position = info[-1].get('position')
             t = info[-1].get('t')
             reward = reward[-1]
             t_step = self.t_step_limits[0]
 
 
-            # Action time steps
             t_a = np.array([0, t_step])
             while np.shape(t_a)[0] < np.shape(q_weights)[0]:
                 t_a = np.append(t_a, t_a[-1] + t_step)
@@ -78,10 +74,10 @@ class StateCallback(BaseCallback):
             t_step = np.ones(np.shape(t_a)) * t_step
             
             # Time arrays for plotting
-            t_a1 = np.vstack((t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a)).transpose()
+            t_a1 = np.vstack((t_a, t_a)).transpose()
 
             t_a2 = t_a
-            t_a = np.vstack((t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a)).transpose()
+            t_a = np.vstack((t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a, t_a)).transpose()
 
             t_e = np.vstack((t,t,t)).transpose()
 
@@ -103,32 +99,30 @@ class StateCallback(BaseCallback):
                 return fig
             
             # Q Weights
-            fig = create_plot(1, 'Q Weights', 'Time (s)', 'Weight', t_a, q_weights, ['Q0','Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9','Q10','Q11','Q12','Q13','Q14','Q15','Q16','Q17','Q18','Q19','Q20','Q21','Q22','Q23','Q24','Q25','Q26','Q27','Q28','Q29','Q30','Q31','Q32','Q33','Q34','Q35'], False)
+            fig = create_plot(1, 'Q Weights', 'Time (s)', 'Weight', t_a, q_weights, ['A0','A1','A2','A3','A4','A5','P0','P1','P2','P3','P4','P5'], True)
             
             # R Weights
-            fig1 = create_plot(2, 'R Weights', 'Time (s)', 'Weight', t_a1, r_weights, ['R0','R1','R2','R3','R4','R5','R6','R7','R8','R9','R10','R11','R12','R13','R14','R15'], False)
+            fig1 = create_plot(2, 'R Weights', 'Time (s)', 'Weight', t_a1, r_weights, ['A','P'], True)
             
             # Time Step
-            # fig2 = create_plot(3, 'Time Step', 'Time (s)', 'Time Step (s)', t_a2, t_step, None, False)
+            fig2 = create_plot(3, 'Time Step', 'Time (s)', 'Time Step (s)', t_a2, t_step, None, False)
             
             # Attitude
             fig4 = create_plot(5, 'Attitude', 'Time (s)', 'Angle (rad)', t_e, attitude.transpose(), ['roll','pitch', 'yaw'], False)
 
             # Spin
-            fig6 = create_plot(7, 'Spin', 'Time (s)', 'Spin (rad/s)', t_e, spin.transpose(), ['roll','pitch','yaw'], False)
+            fig6 = create_plot(7, 'Position', 'Time (s)', 'Spin (rad/s)', t_e, position.transpose(), ['x','y','z'], False)
             
             # Log plots to tensorboard
             self.logger.record("plots/action/q_weights", Figure(fig, close = True), exclude=("stdout", "log", "json", "csv"))
             self.logger.record("plots/action/r_weights", Figure(fig1, close = True), exclude=("stdout", "log", "json", "csv"))
-            # self.logger.record("plots/action/time_step", Figure(fig2, close = True), exclude=("stdout", "log", "json", "csv"))
+            self.logger.record("plots/action/time_step", Figure(fig2, close = True), exclude=("stdout", "log", "json", "csv"))
             self.logger.record("plots/state/attitude", Figure(fig4, close = True), exclude=("stdout", "log", "json", "csv"))
-            self.logger.record("plots/state/spin", Figure(fig6, close = True), exclude=("stdout", "log", "json", "csv"))
+            self.logger.record("plots/state/position", Figure(fig6, close = True), exclude=("stdout", "log", "json", "csv"))
 
             ## LOG DATA
             self.logger.record("time/ep_time_elapsed", t[-1], exclude=("stdout", "log", "json", "csv"))
             self.logger.record("reward/reward", reward, exclude=("stdout", "log", "json", "csv"))
-            self.logger.record("reward/settling_cost", settling_cost, exclude=("stdout", "log", "json", "csv"))
-            self.logger.record("reward/overshoot_cost", overshoot_cost, exclude=("stdout", "log", "json", "csv"))
             
         self.rollouts += 1
         return True
@@ -219,8 +213,6 @@ class TextDataCallback(BaseCallback):
             "Map Limits: " + np.array2string(self.env.get_attr('map_limits')[0]) + "<br>"\
             "Time Step Limits: " + np.array2string(self.env.get_attr('t_step_limits')[0]) + "<br>"\
             "Initial State" + np.array2string(self.env.get_attr('initial_state')[0]) + "<br>"\
-            "Max Attitude: " + str(self.env.get_attr('max_attitude')[0]) + "<br>" +\
-            "Max Spin: " + str(self.env.get_attr('max_spin')[0]) + "<br>" +\
             "Absolute Norm: " + str(self.env.get_attr('absolute_norm')[0]) + "<br>" +\
             "Seed: " + str(self.env.get_attr('seed')[0]) + "<br>"
 
