@@ -1,8 +1,7 @@
 import os
 import time
-import tkinter
-from math import pi
 from tkinter import filedialog
+from typing import Callable
 
 import numpy as np
 
@@ -15,121 +14,61 @@ from stable_baselines3.common.callbacks import (
 )
 from stable_baselines3.common.monitor import Monitor
 
-from callbacks import HParamCallback, StateCallback, TextDataCallback, UMaxCallback
+from callbacks import HParamCallback, StateCallback, TextDataCallback
 from drone_env import DroneEnv as de
-from drone_pso import DronePSO as dpso
+
+
+def linear_schedule(initial_value: float) -> Callable[[float], float]:
+    def func(progress_remaining: float) -> float:
+        return progress_remaining * initial_value
+
+    return func
+
 
 # -------------------- PARAMETERS --------------------
 # Hyperparameters
-learning_rate = 1e-4
-n_steps = 1024
-batch_size = 64
+learning_rate = 1e-3
+n_steps = 2048
+batch_size = 512
 n_epochs = 10
 clip_range = 0.1
 gamma = 0.99
 
 vf_coef = 0.5
-ent_coef = 0.0
+ent_coef = 0
 gae_lambda = 0.95
 max_grad_norm = 0.5
 seed = 0
 
-log_std_init = np.log(1)
+log_std_init = np.log(0.1)
 
 # NUM EPISODES
-num_episodes = 3000
+num_episodes = 1500
 num_time_steps = num_episodes * n_steps
 
 # Environment Parameters
 env_params = {
-    "variance_type": "none",
-    "variance": 0,
-    "max_duration": 750,
-    "map_limits": np.array(
-        [
-            [
-                1e0,
-                1e0,
-                1e0,
-                1e0,
-                1e0,
-                1e0,
-                1e0,
-                1e0,
-                1e0,
-                1e0,
-                1e0,
-                1e0,
-                1e0,
-                1e0,
-                1e0,
-                1e0,
-            ],
-            [
-                1e10,
-                1e10,
-                1e10,
-                1e10,
-                1e10,
-                1e10,
-                1e10,
-                1e10,
-                1e10,
-                1e10,
-                1e10,
-                1e10,
-                1e10,
-                1e10,
-                1e10,
-                1e10,
-            ],
-        ],
-        dtype=np.float32,
-    ),
-    "t_step_limits": np.array([0.1, 0.1], dtype=np.float32),
-    "u_max": 1e-0,
-    "simulation_type": "qrt",
-    "t_step": 5,
+    "max_duration": 150,
+    "map_limits": np.array([-500, 500], dtype=np.float64),
+    "t_step": 1,
     "seed": seed,
-    "absolute_norm": False,
-}
-
-u_max_callback_args = {
-    "u_max_initial": env_params["u_max"],
-    "u_max_final": 1e0,
-    "step_gap": 1024 * 100,
-    "total_timesteps": num_time_steps,
 }
 
 verbose = 0
-device = "cpu"  # cpu or cuda
-
+device = "cuda"  # cpu or cuda
 
 # TEST TYPE
-testtype = ""
-additional_info = ""
+testtype = "checks"
+additional_info = "_1000"
 
 # -------------------- INITIALISE MODEL & RUN TRAINING --------------------
 
 timeStr = time.strftime("%Y%m%d-%H%M")
-a = input("Run as test? [Y/n]: ")
-if a == "pso":
-    print("PSO")
-    pso = dpso(env_params, verbose)
-    cost, pos = pso.optimize()
-    print("PSO Complete")
-    print(cost)
-    print(pos)
-    exit()
-elif a != "n":
-    name_string = "./models/testing/drone/" + "PPO_" + timeStr + additional_info
-    print("TESTING")
-else:
-    name_string = "./models/drone/" + testtype + "/PPO_" + timeStr + additional_info
-    i = 1
-    while os.path.exists(name_string):
-        name_string = name_string + "_" + str(i)
-        i = i + 1
+name_string = "./models/drone/" + testtype + "/PPO_" + timeStr + additional_info
+i = 1
+while os.path.exists(name_string):
+    name_string = name_string + "_" + str(i)
+    i = i + 1
 
 if input("Continue training? [y/N]: ") == "y":
     continue_training = True
@@ -160,7 +99,7 @@ text_data_callback = TextDataCallback()
 checkpoint_callback = CheckpointCallback(
     save_freq=50 * n_steps, save_path=name_string + "/checkpoints/"
 )
-u_max_callback = UMaxCallback(args=u_max_callback_args)
+# u_max_callback = UMaxCallback(args=u_max_callback_args)
 callbacks = CallbackList(
     [
         state_callback,
@@ -168,7 +107,6 @@ callbacks = CallbackList(
         eval_callback,
         text_data_callback,
         checkpoint_callback,
-        u_max_callback,
     ]
 )
 
@@ -176,6 +114,7 @@ callbacks = CallbackList(
 policy_kwargs = {
     "share_features_extractor": False,
     "log_std_init": log_std_init,
+    "net_arch": dict(pi=[120, 139, 160], vf=[120, 35, 10]),
 }
 
 if not continue_training:
@@ -202,7 +141,7 @@ if not continue_training:
     model.learn(total_timesteps=num_time_steps, progress_bar=True, callback=callbacks)
 else:
     model = PPO.load(
-        name_string + "/final_model/final_model.zip",
+        name_string + "/final_model/final_model",
         env=env,
         device=device,
         tensorboard_log=name_string + "/logs/",
@@ -215,6 +154,5 @@ else:
         callback=callbacks,
         reset_num_timesteps=False,
     )
-
 
 model.save(name_string + "/final_model/final_model.zip")

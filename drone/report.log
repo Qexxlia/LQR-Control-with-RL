@@ -44,3 +44,14 @@
 2024-06-26 01:11:43,266 - jax._src.xla_bridge - INFO - Unable to initialize backend 'cuda': 
 2024-06-26 01:11:43,266 - jax._src.xla_bridge - INFO - Unable to initialize backend 'rocm': module 'jaxlib.xla_extension' has no attribute 'GpuAllocatorConfig'
 2024-06-26 01:11:43,279 - jax._src.xla_bridge - INFO - Unable to initialize backend 'tpu': UNIMPLEMENTED: LoadPjrtPlugin is not implemented on windows yet.
+2024-07-21 21:46:09,965 - jax._src.xla_bridge - INFO - Unable to initialize backend 'cuda': 
+2024-07-21 21:46:09,966 - jax._src.xla_bridge - INFO - Unable to initialize backend 'rocm': module 'jaxlib.xla_extension' has no attribute 'GpuAllocatorConfig'
+2024-07-21 21:46:09,979 - jax._src.xla_bridge - INFO - Unable to initialize backend 'tpu': INTERNAL: Failed to open libtpu.so: libtpu.so: cannot open shared object file: No such file or directory
+2024-07-21 21:46:09,980 - jax._src.xla_bridge - WARNING - An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu.
+2024-07-21 21:48:30,431 - jax._src.xla_bridge - INFO - Unable to initialize backend 'cuda': 
+2024-07-21 21:48:30,436 - jax._src.xla_bridge - INFO - Unable to initialize backend 'rocm': module 'jaxlib.xla_extension' has no attribute 'GpuAllocatorConfig'
+2024-07-21 21:48:30,438 - jax._src.xla_bridge - INFO - Unable to initialize backend 'tpu': INTERNAL: Failed to open libtpu.so: libtpu.so: cannot open shared object file: No such file or directory
+2024-07-21 21:48:30,439 - jax._src.xla_bridge - WARNING - An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu.
+2024-07-21 21:50:36,906 - jax._src.xla_bridge - INFO - Unable to initialize backend 'cuda': 
+2024-07-21 21:50:36,907 - jax._src.xla_bridge - INFO - Unable to initialize backend 'rocm': module 'jaxlib.xla_extension' has no attribute 'GpuAllocatorConfig'
+2024-07-21 21:50:36,912 - jax._src.xla_bridge - INFO - Unable to initialize backend 'tpu': UNIMPLEMENTED: LoadPjrtPlugin is not implemented on windows yet.

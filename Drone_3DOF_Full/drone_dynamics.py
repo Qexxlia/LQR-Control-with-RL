@@ -82,7 +82,11 @@ def simulate(
         u_max
         ):
     
-    [K, S, E] = ctrl.lqr(A, B, Q, R)
+    try:
+        [K, S, E] = ctrl.lqr(A, B, Q, R)
+    except:
+        print("LQR Failed")
+        return None
 
     sol = integrate.solve_ivp(
         nextState,

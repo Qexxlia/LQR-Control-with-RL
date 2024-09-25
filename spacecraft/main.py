@@ -1,30 +1,31 @@
+import os
 import time
-# from stable_baselines3 import PPO 
-from sbx import PPO
-from stable_baselines3.common.callbacks import EvalCallback
-from stable_baselines3.common.callbacks import CallbackList
-from stable_baselines3.common.callbacks import CheckpointCallback
-from stable_baselines3.common.monitor import Monitor
+from tkinter import filedialog
 from typing import Callable
 
 import numpy as np
-from math import pi
-import os
-import tkinter
-from tkinter import filedialog
 
+# from stable_baselines3 import PPO
+from sbx import PPO
+from stable_baselines3.common.callbacks import (
+    CallbackList,
+    CheckpointCallback,
+    EvalCallback,
+)
+from stable_baselines3.common.monitor import Monitor
+
+from callbacks import HParamCallback, StateCallback, TextDataCallback, UMaxCallback
 from spacecraft_env import SpacecraftEnv as spe
-from callbacks import StateCallback
-from callbacks import HParamCallback
-from callbacks import TextDataCallback
-from callbacks import UMaxCallback
+
 
 def linear_schedule(initial_value: float) -> Callable[[float], float]:
     def func(progress_remaining: float) -> float:
         return initial_value * progress_remaining
+
     return func
 
-#-------------------- PARAMETERS --------------------
+
+# -------------------- PARAMETERS --------------------
 # Hyperparameters
 learning_rate = 1e-4
 n_steps = 1024
@@ -42,60 +43,62 @@ seed = 0
 log_std_init = np.log(1)
 
 # NUM EPISODES
-num_episodes = 3000
+num_episodes = 4000
 num_time_steps = num_episodes * n_steps
 
 # Environment Parameters
 env_params = {
-    "variance_type" : "none",
-    "variance" : 0,
-    "max_duration" : 40000,
-    "map_limits" : np.array(
+    "variance_type": "none",
+    "variance": 0,
+    "max_duration": 5000,
+    "map_limits": np.array(
         [
             [1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0, 1e0],
-            [1e6, 1e6, 1e6, 1e6, 1e6, 1e6, 1e6, 1e6, 1e6]
+            [1e6, 1e6, 1e6, 1e6, 1e6, 1e6, 1e6, 1e6, 1e6],
         ],
-        dtype=np.float64
+        dtype=np.float64,
     ),
-    "t_step_limits" : np.array([10, 10], dtype=np.float64),
-    "u_max" : 1e-5,
-    "simulation_type" : "qrt",
-    "t_step" : 0,
-    "seed" : seed,
-    "absolute_norm" : True,
+    "t_step_limits": np.array([10, 10], dtype=np.float64),
+    "u_max": 1e-5,
+    "simulation_type": "qrt",
+    "t_step": 0,
+    "seed": seed,
+    "absolute_norm": True,
 }
 
-u_max_callback_args = {
-    "u_max_initial" : env_params["u_max"],
-    "u_max_final" : 1e-4,
-    "step_gap" : 1024*100,
-    "total_timesteps" : num_time_steps,
-}
+# u_max_callback_args = {
+#     "u_max_initial": env_params["u_max"],
+#     "u_max_final": 1e-4,
+#     "step_gap": 1024 * 100,
+#     "total_timesteps": num_time_steps,
+# }
 
 verbose = 0
-device = 'cpu' #cpu or cuda
+device = "cuda"
 
 
 # TEST TYPE
-testtype = "integrate"
+testtype = "RESULTS"
 additional_info = ""
 
-#-------------------- INITIALISE MODEL & RUN TRAINING --------------------
+# -------------------- INITIALISE MODEL & RUN TRAINING --------------------
 
 timeStr = time.strftime("%Y%m%d-%H%M")
-if(input("Run as test? [Y/n]: ") != "n"):
+if input("Run as test? [Y/n]: ") != "n":
     name_string = "./models/testing/spacecraft/" + "PPO_" + timeStr + additional_info
     print("TESTING")
 else:
-    name_string = "./models/spacecraft/" + testtype + "/PPO_" + timeStr + additional_info
+    name_string = (
+        "./models/spacecraft/" + testtype + "/PPO_" + timeStr + additional_info
+    )
     i = 1
     while os.path.exists(name_string):
         name_string = name_string + "_" + str(i)
         i = i + 1
-    
-if(input("Continue training? [y/N]: ") == "y"):
+
+if input("Continue training? [y/N]: ") == "y":
     continue_training = True
-    name_string = filedialog.askdirectory(initialdir=os.getcwd()+"/models")
+    name_string = filedialog.askdirectory(initialdir=os.getcwd() + "/models")
 else:
     continue_training = False
 
@@ -107,24 +110,42 @@ env = Monitor(env)
 obs = env.reset()
 
 # Define Callbacks
-eval_callback = EvalCallback(env, best_model_save_path=name_string + "/best_model/", log_path=name_string + "/evaluations/", eval_freq=5*n_steps, deterministic=True, render=False, verbose=0)
-state_callback = StateCallback(args=env_params, plot_rate = 5)
+eval_callback = EvalCallback(
+    env,
+    best_model_save_path=name_string + "/best_model/",
+    log_path=name_string + "/evaluations/",
+    eval_freq=5 * n_steps,
+    deterministic=True,
+    render=False,
+    verbose=0,
+)
+state_callback = StateCallback(args=env_params, plot_rate=5)
 hparam_callback = HParamCallback()
 text_data_callback = TextDataCallback()
-checkpoint_callback = CheckpointCallback(save_freq=50*n_steps, save_path=name_string + "/checkpoints/")
-u_max_callback = UMaxCallback(args=u_max_callback_args)
-callbacks = CallbackList([state_callback, hparam_callback, eval_callback, text_data_callback, checkpoint_callback])
+checkpoint_callback = CheckpointCallback(
+    save_freq=50 * n_steps, save_path=name_string + "/checkpoints/"
+)
+# u_max_callback = UMaxCallback(args=u_max_callback_args)
+callbacks = CallbackList(
+    [
+        state_callback,
+        hparam_callback,
+        eval_callback,
+        text_data_callback,
+        checkpoint_callback,
+    ]
+)
 
 # Define PPO Parameters
 policy_kwargs = {
-    'share_features_extractor' : False,
-    'log_std_init' : log_std_init,
+    "share_features_extractor": False,
+    "log_std_init": log_std_init,
 }
 
 if not continue_training:
     model = PPO(
-        "MlpPolicy", 
-        env, 
+        "MlpPolicy",
+        env,
         tensorboard_log=name_string + "/logs/",
         learning_rate=learning_rate,
         gamma=gamma,
@@ -138,20 +159,26 @@ if not continue_training:
         clip_range=clip_range,
         device=device,
         policy_kwargs=policy_kwargs,
-        seed = seed
+        seed=seed,
     )
 
     # Start learning
     model.learn(total_timesteps=num_time_steps, progress_bar=True, callback=callbacks)
 else:
-    model = PPO.load(name_string + "/final_model/final_model.zip", 
-                    env=env, 
-                    device=device,
-                    tensorboard_log=name_string + "/logs/"
-                    )
+    model = PPO.load(
+        name_string + "/final_model/final_model.zip",
+        env=env,
+        device=device,
+        tensorboard_log=name_string + "/logs/",
+    )
 
     # Start learning
-    model.learn(total_timesteps=num_time_steps, progress_bar=True, callback=callbacks, reset_num_timesteps=False)
-    
+    model.learn(
+        total_timesteps=num_time_steps,
+        progress_bar=True,
+        callback=callbacks,
+        reset_num_timesteps=False,
+    )
+
 
 model.save(name_string + "/final_model/final_model.zip")

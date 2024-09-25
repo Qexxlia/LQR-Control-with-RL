@@ -1,6 +1,6 @@
 *.code-workspace
-*.venv
-*.conda
+*.venv/
+*.conda/
 tensorflow/
 __pycache__/
 models/

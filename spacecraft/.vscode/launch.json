@@ -10,9 +10,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": false,
-            "cwd" : "${workspaceFolder}",
-            "python" : "${command:python.interpreterPath}"
+            "justMyCode": false
         }
     ]
 }

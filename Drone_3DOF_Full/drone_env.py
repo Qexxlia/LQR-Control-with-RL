@@ -4,7 +4,7 @@ import pandas as pd
 import math
 from scipy import integrate
 
-import drone_dynamics_verbose as dd
+import drone_dynamics as dd
 
 class DroneEnv(gym.Env):
     
@@ -40,7 +40,7 @@ class DroneEnv(gym.Env):
         self.max_spin = 6*self.desired_angle
 
         # Define the action space
-        action_limits = np.ones(8, dtype=np.float32)
+        action_limits = np.ones(52, dtype=np.float32)
 
         self.action_space = gym.spaces.Box(
             low = -action_limits,
@@ -66,7 +66,7 @@ class DroneEnv(gym.Env):
         self.current_time = 0
         self.initial_time = 0
         
-        self.t_step = 0
+        self.t_step = self.t_step_limits[0]
         
         # Tracking position
         self.attitude = np.atleast_2d(self.initial_state[0:3] + self.desired_angle)
@@ -81,31 +81,47 @@ class DroneEnv(gym.Env):
 
     def step(self, action):
         # Define action
-        q_weights = self.map_range(action[0:6], -1, 1, self.map_limits[0,0:6], self.map_limits[1,0:6])
-        r_weight = self.map_range(action[6], -1, 1, self.map_limits[0,6], self.map_limits[1,6])
-        self.t_step = self.map_range(action[7], -1, 1, self.t_step_limits[0], self.t_step_limits[1])
-        r_weights = np.array([r_weight, r_weight, r_weight, r_weight])
-
-        if(self.verbose == 1):
-            with np.printoptions(precision=3, suppress=False, linewidth=140):
-                print("qWeights:", q_weights)
-                print("rWeights:", r_weights)
-                print("tStep:", self.t_step)
-                print("State: ", self.state)
+        # q = self.log_map_range(action[0:21], -1, 1, np.ones(21)*self.map_limits[0,0], np.ones(21)*self.map_limits[1,0])
+        # r = self.log_map_range(action[21:31], -1, 1, np.ones(10)*self.map_limits[0,1], np.ones(10)*self.map_limits[1,1])
         
+        # Q = np.array([
+        #     [q[0], q[1],  q[2],  q[3],  q[4],  q[5]],
+        #     [q[1], q[6],  q[7],  q[8],  q[9],  q[10]],
+        #     [q[2], q[7],  q[11], q[12], q[13], q[14]],
+        #     [q[3], q[8],  q[12], q[15], q[16], q[17]],
+        #     [q[4], q[9],  q[13], q[16], q[18], q[19]],
+        #     [q[5], q[10], q[14], q[17], q[19], q[20]]
+        # ])
+        
+        # input(Q)
+        
+        # R = np.array([
+        #     [r[0], r[1], r[2], r[3]],
+        #     [r[1], r[4], r[5], r[6]],
+        #     [r[2], r[5], r[7], r[8]],
+        #     [r[3], r[6], r[8], r[9]]
+        # ])
+        q = np.reshape(self.linear_map_range(action[0:36], 0, 1, np.ones(36)*self.map_limits[0,0], np.ones(36)*self.map_limits[1,0]),(6,6))
+        r = np.reshape(self.linear_map_range(action[36:52], 0, 1, np.ones(16)*self.map_limits[0,1], np.ones(16)*self.map_limits[1,1]),(4,4))
+        
+        Q = q.T @ q
+        R = r.T @ r
+        
+        # Ensure R is not singular
+        R = R + 1e-6*np.eye(4)
+
         # Set time range
         time_range = (self.current_time, self.current_time + self.t_step)
      
         # Simulate dynamics
-        if self.verbose == 1: print("Simulating...")
-        [sol, u] = dd.simulate(self.state, time_range, q_weights, r_weights, self.A, self.B, self.u_max)
-        if self.verbose == 1: print("Simulated")
+        sol = dd.simulate(self.state, time_range, Q, R, self.A, self.B, self.u_max)
+        
+        if sol is None:
+            return self.normalise_state(self.state), -100, False, False, {'failed' : True}
         
         # Update state
         self.current_time = sol.t[-1]
         self.state = sol.y[:,-1]
-
-        self.u = np.hstack((self.u, u))
         
         self.attitude = np.hstack((np.atleast_2d(self.attitude), sol.y[0:3,:] + self.desired_angle))
         self.spin = np.hstack((np.atleast_2d(self.spin), sol.y[3:6,:]))
@@ -131,9 +147,9 @@ class DroneEnv(gym.Env):
         #$$ Reward Calculation
         attitude_error = -(self.attitude[0:3,:] - self.desired_angle) 
         if terminated:
-            reward = -(integrate.simps((attitude_error[0,:]**2 + attitude_error[1,:]**2 + attitude_error[2,:]**2), self.t) * 10 + self.current_time) * 10
+            reward = -(integrate.simps((attitude_error[0,:]**2 + attitude_error[1,:]**2 + attitude_error[2,:]**2), self.t) + self.current_time) * 10
         if truncated:
-            reward = -(integrate.simps((attitude_error[0,:]**2 + attitude_error[1,:]**2 + attitude_error[2,:]**2), self.t) * 20 + self.current_time) * 10
+            reward = -(integrate.simps((attitude_error[0,:]**2 + attitude_error[1,:]**2 + attitude_error[2,:]**2), self.t) + self.current_time) * 20
         #$$
         
         # Return
@@ -141,9 +157,6 @@ class DroneEnv(gym.Env):
                 'attitude': self.attitude,
                 'spin': self.spin,
                 't' : self.t,
-                'settling_cost' : settling_cost,
-                'overshoot_cost' : overshoot_cost,
-                'u' : self.u
                 }
             
         return normalised_state, reward, terminated, truncated, info
@@ -200,10 +213,12 @@ class DroneEnv(gym.Env):
         return normalised_state
 
 
-    def map_range(self, val, in_min, in_max, out_min, out_max):
+    def linear_map_range(self, val, in_min, in_max, out_min, out_max):
         # Map a value from one range to another
-        # return (val - in_min)/(in_max - in_min)*(out_max - out_min) + out_min # LINEAR
-        return out_min * (out_max/out_min)**((val - in_min)/(in_max - in_min)) # LOG
+        return (val - in_min)/(in_max - in_min)*(out_max - out_min) + out_min # LINEAR
+    
+    def log_map_range(self, val, in_min, in_max, out_min, out_max):
+        return np.copysign(out_min * (out_max/out_min)**((abs(val) - in_min)/(in_max - in_min)), val) # LOG
     
     def var_state(self):
         r = np.random.normal(-self.variance, self.variance, 6)

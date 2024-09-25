@@ -38,15 +38,20 @@ class StateCallback(BaseCallback):
 
             # Simulate
             done = False
+            donecount = 0
             while not done:
                 [obs, reward, done, info] = vec_env.step(action)
                 [action, _state] = self.model.predict(obs, deterministic=True)
 
                 action_record = np.vstack((action_record, action))
 
-                if(info[-1].get('t')[-1] > self.max_duration):
+                if(info[-1].get('t',[0])[-1] > self.max_duration):
                     done = True
-                    
+                if info[-1].get('failed', False):
+                    donecount += 1
+                if donecount >= 10:
+                    return True
+
             q_weights = np.zeros((np.shape(action_record)[0], 36))
             r_weights = np.zeros((np.shape(action_record)[0], 16))
 

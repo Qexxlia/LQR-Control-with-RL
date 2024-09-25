@@ -1,6 +1,6 @@
 import time
-from stable_baselines3 import PPO 
-# from sbx import PPO
+# from stable_baselines3 import PPO 
+from sbx import PPO
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.callbacks import CallbackList
 from stable_baselines3.common.callbacks import CheckpointCallback
@@ -9,8 +9,8 @@ from typing import Callable
 
 import numpy as np
 from math import pi
+import math
 import os
-import tkinter
 from tkinter import filedialog
 
 from drone_env import DroneEnv as de
@@ -27,14 +27,14 @@ def linear_schedule(initial_value: float) -> Callable[[float], float]:
 #-------------------- PARAMETERS --------------------
 # Hyperparameters
 learning_rate = linear_schedule(1e-3)
-n_steps = 1024
-batch_size = 64
+n_steps = 8192
+batch_size =  512
 n_epochs = 10
 clip_range = 0.1
 gamma = 0.99
 
 vf_coef = 0.5
-ent_coef = 0.0
+ent_coef = 0
 gae_lambda = 0.95
 max_grad_norm = 0.5
 seed = 0
@@ -42,22 +42,23 @@ seed = 0
 log_std_init = np.log(1)
 
 # NUM EPISODES
-num_episodes = 1500
+num_episodes = 6000 
 num_time_steps = num_episodes * n_steps
 
 # Environment Parameters
 env_params = {
     "variance_type" : "none",
     "variance" : 0,
-    "max_duration" : 50,
+    "max_duration" : 10000,
     "map_limits" : np.array(
         [
-            np.ones(4)*1,
-            np.ones(4)*1000
+            # [1.29e-3, 1.29e-3],
+            [-9.129, -9.129],
+            [9.129, 9.129]
         ],
         dtype=np.float32
     ),
-    "t_step_limits" : np.array([1], dtype=np.float32),
+    "t_step_limits" : np.array([0.1, 1], dtype=np.float32),
     "u_max" : 24,
     "seed" : seed,
     "absolute_norm" : False
@@ -75,7 +76,7 @@ device = 'cpu' #cpu or cuda
 
 
 # TEST TYPE
-testtype = ""
+testtype = "tryexcept"
 additional_info = ""
 
 #-------------------- INITIALISE MODEL & RUN TRAINING --------------------
@@ -126,6 +127,7 @@ callbacks = CallbackList([state_callback, hparam_callback, eval_callback, text_d
 policy_kwargs = {
     'share_features_extractor' : False,
     'log_std_init' : log_std_init,
+    'net_arch' : dict(pi=[60, 177 ,520], vf=[60, 25, 10])
 }
 
 if not continue_training:
@@ -147,11 +149,13 @@ if not continue_training:
         policy_kwargs=policy_kwargs,
         seed = seed
     )
-
+    
+    input(model.policy)
+    
     # Start learning
     model.learn(total_timesteps=num_time_steps, progress_bar=True, callback=callbacks)
 else:
-    model = PPO.load(name_string + "/final_model/final_model.zip", 
+    model = PPO.load(name_string + "/checkpoints/rl_model_4198400_steps", 
                     env=env, 
                     device=device,
                     tensorboard_log=name_string + "/logs/"
