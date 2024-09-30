@@ -4,6 +4,7 @@ import gymnasium as gym
 import numpy as np
 
 import spacecraft_dynamics_verbose as scd
+from scipy import integrate
 
 
 class SpacecraftEnv(gym.Env):
@@ -118,7 +119,7 @@ class SpacecraftEnv(gym.Env):
         self.pos = np.hstack((np.atleast_2d(self.pos), sol.y[0:3, :]))
         self.vel = np.hstack((np.atleast_2d(self.vel), sol.y[3:6, :]))
         self.t = np.hstack((self.t, sol.t))
-        self.u = np.hstack((self.u, u))
+        self.u = np.vstack((self.u, u.T))
 
         normalised_state = self.normalise_state(self.state)
 
@@ -194,7 +195,7 @@ class SpacecraftEnv(gym.Env):
         self.num_updates = 0
         self.initial_time = 0
         self.t = np.zeros(1)
-        self.u = np.zeros(1)
+        self.u = np.zeros(3)
         self.pos = np.atleast_2d(self.initial_state[0:3]).T
         self.vel = np.atleast_2d(self.initial_state[3:6]).T
 
